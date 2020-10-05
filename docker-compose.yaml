@@ -1,0 +1,9 @@
+version: '3'
+services:
+  cashier:
+    build: .
+    image: xcontest-cashier
+    volumes:
+      - ./cashier:/app/cashier
+    env_file:
+      - .env
