@@ -13,4 +13,7 @@ config.init("FIO_API_TOKEN", str, None)
 
 config.init("DATE", date, date.today())
 
+# in percent - how much we must be confident in pilot-to-transaction match to "pair" them
+config.init("PAIRING_THRESHOLD", int, 90)
+
 config.load()
