@@ -11,6 +11,7 @@ llconfig = "==1.*"
 aiohttp = "*"
 bs4 = "*"
 lxml = "*"
+fuzzywuzzy = {extras = ["speedup"],version = "*"}
 
 [requires]
 python_version = "3.8"
