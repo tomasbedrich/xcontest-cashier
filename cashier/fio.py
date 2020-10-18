@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Iterable, Optional
 
 import logging
 from fiobank import FioBank
@@ -15,7 +15,7 @@ bank = FioBank(token=config["FIO_API_TOKEN"])
 class Transaction:
     amount: float
     account_name: str
-    recipient_message: str
+    recipient_message: Optional[str]
 
     @classmethod
     def from_api(cls, api_object):
