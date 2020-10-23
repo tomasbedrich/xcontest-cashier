@@ -23,4 +23,6 @@ config.init("LIVENESS_SLEEP", int, 10)  # seconds
 
 config.init("FIO_API_TOKEN", str, None)
 
+config.init("MONGO_CONNECTION_STRING", str)
+
 config.load()

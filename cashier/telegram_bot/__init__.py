@@ -7,6 +7,7 @@ from aiogram.dispatcher.filters import CommandStart, CommandHelp, IDFilter
 from aiogram.utils import executor
 from aiohttp import ClientSession, DummyCookieJar
 from datetime import datetime
+from motor.motor_asyncio import AsyncIOMotorClient
 from sentry_sdk.integrations.aiohttp import AioHttpIntegration
 from textwrap import dedent
 from typing import Optional
@@ -21,6 +22,9 @@ sentry_sdk.init(**config.get_namespace("SENTRY_"), integrations=[AioHttpIntegrat
 
 bot = Bot(token=config["TOKEN"])
 dp = Dispatcher(bot)
+
+mongo = AsyncIOMotorClient(config["MONGO_CONNECTION_STRING"])
+db = mongo["default"]
 
 tasks = []
 
@@ -54,6 +58,7 @@ async def watch_transactions():
         log.info("Executing transaction watch task")
 
         transactions = get_transactions(datetime.today().year)
+        # await db.transactions.insertMany(transactions)
         for transaction in transactions:
             # FIXME not printing, don't know why
             log.debug(f"bot.send_message({config['CHAT_ID']=}, {transaction=})")
@@ -67,6 +72,7 @@ async def watch_takeoffs():
         log.info("Executing takeoff watch task")
 
         flights = get_flights(session, Takeoff.DOUBRAVA, datetime.today().strftime("%Y-%m"))
+        await db.flights.insertMany(flights)
         # async for flight in flights:
         #     # FIXME not printing, don't know why
         #     log.debug(f"bot.send_message({config['CHAT_ID']=}, {flight=})")

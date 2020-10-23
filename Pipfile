@@ -7,13 +7,14 @@ verify_ssl = true
 
 [packages]
 fiobank = "*"
-llconfig = "==1.*"
+llconfig = "*"
 aiohttp = "*"
 bs4 = "*"
 lxml = "*"
-aiogram = "==2.*"
-sentry-sdk = "==0.16.*"
-aiocron = "==1.*"
+aiogram = "*"
+sentry-sdk = "*"
+aiocron = "*"
+motor = "*"
 
 [requires]
 python_version = "3.8"
