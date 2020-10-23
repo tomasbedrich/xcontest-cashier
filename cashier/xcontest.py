@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup, SoupStrainer
 from typing import Union, Iterable, AsyncIterable
 from urllib.parse import urljoin
 
-log = logging.getLogger()
+log = logging.getLogger(__name__)
 
 
 class Takeoff(Enum):

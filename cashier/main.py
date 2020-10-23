@@ -7,7 +7,7 @@ from cashier.config import config
 from cashier.fio import get_transactions
 from cashier.xcontest import get_flights, Takeoff
 
-log = logging.getLogger()
+log = logging.getLogger(__name__)
 
 
 async def main():

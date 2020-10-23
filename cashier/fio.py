@@ -6,7 +6,7 @@ from fiobank import FioBank
 
 from cashier.config import config
 
-log = logging.getLogger()
+log = logging.getLogger(__name__)
 
 bank = FioBank(token=config["FIO_API_TOKEN"])
 
