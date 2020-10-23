@@ -1,14 +1,12 @@
 from dataclasses import dataclass
-from typing import Iterable, Optional
 
 import logging
+import os
+from datetime import date
 from fiobank import FioBank
-
-from cashier.config import config
+from typing import Iterable, Optional
 
 log = logging.getLogger(__name__)
-
-bank = FioBank(token=config["FIO_API_TOKEN"])
 
 
 @dataclass()
@@ -26,10 +24,7 @@ class Transaction:
         )
 
 
-def get_transactions(year: int) -> Iterable[Transaction]:
-    """Get all transactions in given year."""
-    from_date = f"{year}-01-01"
-    to_date = f"{year + 1}-01-01"
+def get_transactions(bank, from_date, to_date) -> Iterable[Transaction]:
     acc_number = bank.info()["account_number_full"]
     log.info(f"Downloading transactions {from_date=} {to_date=} from bank account {acc_number}.")
     transactions = bank.period(from_date, to_date)
@@ -37,5 +32,7 @@ def get_transactions(year: int) -> Iterable[Transaction]:
 
 
 if __name__ == "__main__":
-    for transaction in get_transactions(config["DATE"].year):
+    token = os.environ["APP_FIO_API_TOKEN"]
+    bank = FioBank(token)
+    for transaction in get_transactions(bank, "2020-01-01", date.today()):
         print(transaction)

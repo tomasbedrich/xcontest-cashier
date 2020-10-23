@@ -4,7 +4,7 @@ from enum import Enum
 import asyncio
 import datetime
 import logging
-from aiohttp import ClientSession, DummyCookieJar
+from aiohttp import ClientSession, DummyCookieJar, ClientTimeout
 from bs4 import BeautifulSoup, SoupStrainer
 from typing import Union, Iterable, AsyncIterable
 from urllib.parse import urljoin
@@ -121,10 +121,10 @@ def _parse_page(page: str) -> Iterable[Flight]:
 
 
 async def _main():
-    from cashier.config import config
-
-    async with ClientSession(**config.get_namespace("HTTP_"), cookie_jar=DummyCookieJar()) as session:
-        async for flight in get_flights(session, Takeoff.DOUBRAVA, "2020-05"):
+    async with ClientSession(
+        timeout=ClientTimeout(total=10), raise_for_status=True, cookie_jar=DummyCookieJar()
+    ) as session:
+        async for flight in get_flights(session, Takeoff.DOUBRAVA, "2020-10"):
             print(flight)
 
 

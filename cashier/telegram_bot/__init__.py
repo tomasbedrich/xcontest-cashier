@@ -13,7 +13,7 @@ from typing import Optional
 
 from cashier.fio import get_transactions
 from cashier.xcontest import get_flights, Takeoff
-from .config import config
+from cashier.config import config
 
 log = logging.getLogger(__name__)
 
