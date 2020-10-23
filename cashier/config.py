@@ -1,6 +1,5 @@
 from aiohttp import ClientTimeout
 from datetime import date
-
 from llconfig import Config
 from llconfig.converters import bool_like
 

@@ -11,6 +11,9 @@ llconfig = "==1.*"
 aiohttp = "*"
 bs4 = "*"
 lxml = "*"
+aiogram = "==2.*"
+sentry-sdk = "==0.16.*"
+aiocron = "==1.*"
 
 [requires]
 python_version = "3.8"
