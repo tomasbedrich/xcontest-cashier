@@ -15,6 +15,8 @@ aiogram = "*"
 sentry-sdk = "*"
 aiocron = "*"
 motor = "*"
+emoji = "*"
+typing_extensions = "*"  # because of https://github.com/aio-libs/aiohttp/issues/5107
 
 [requires]
 python_version = "3.8"

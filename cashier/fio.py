@@ -31,6 +31,14 @@ def get_transactions(bank, from_date, to_date) -> Iterable[Transaction]:
     return map(Transaction.from_api, transactions)
 
 
+# KISS
+def transaction_to_json(trans):
+    return {
+        **trans,
+        "date": trans["date"].isoformat()
+    }
+
+
 if __name__ == "__main__":
     token = os.environ["APP_FIO_API_TOKEN"]
     bank = FioBank(token)

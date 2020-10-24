@@ -1,18 +1,20 @@
 import asyncio
+import fiobank
 import logging
 import sentry_sdk
 from aiocron import crontab
 from aiogram import Bot, Dispatcher, types
 from aiogram.dispatcher.filters import CommandStart, CommandHelp, IDFilter
+from aiogram.utils import emoji
 from aiohttp import ClientSession, DummyCookieJar, ClientTimeout
-from datetime import datetime, date
+from datetime import datetime
 from fiobank import FioBank
 from motor.motor_asyncio import AsyncIOMotorClient
 from sentry_sdk.integrations.aiohttp import AioHttpIntegration
 from textwrap import dedent
 
 from cashier.config import config
-from cashier.fio import get_transactions
+from cashier.fio import transaction_to_json
 from cashier.xcontest import get_flights, Takeoff
 
 # telemetry
@@ -29,15 +31,44 @@ CMD_PAIR = "sparuj"
 CMD_COMMENT = "vyhubuj"
 
 
-async def watch_transactions(bank, db):
-    while True:
-        log.info("Executing transaction watch task")
+async def send_md(message):
+    """Send Markdown message to common chat."""
+    message = emoji.emojize(dedent(message))
+    print(message)
+    # await bot.send_message(CHAT_ID, message, parse_mode="MarkdownV2")
 
-        transactions = await asyncio.to_thread(get_transactions, bank, "2020-01-01", date.today())
-        # await db.transactions.insertMany(transactions)
-        for transaction in transactions:
-            print(transaction)
-            # await bot.send_message(CHAT_ID, str(transaction))
+
+async def watch_transactions(bank, db):
+    await asyncio.sleep(1)  # TODO better way to wait for Telegram to be ready
+    while True:
+        log.info(f"Executing transaction watch task")
+
+        last_transaction = await db.transactions.find_one(sort=[("transaction_id", -1)])
+        from_id = last_transaction["transaction_id"]
+        log.debug(f"Downloading last transactions {from_id=}")
+        while True:
+            try:
+                transactions = list(await asyncio.to_thread(bank.last, from_id=from_id))
+                break
+            except fiobank.ThrottlingError:
+                log.warning("Throttled bank API request, retrying in 30 seconds")
+                await asyncio.sleep(30)  # hardcoded according to FIO bank docs
+
+        if not transactions:
+            log.info("No transactions downloaded")
+            await crontab(config["TRANSACTION_WATCH_CRON"]).next()
+            continue
+
+        log.debug("Inserting transactions to DB")
+        await db.transactions.insert_many(map(transaction_to_json, transactions))
+
+        for trans in transactions:
+            log.info(f"Processing transaction {trans}")
+            message = f"""
+            **Nový pohyb na účtu:**
+            :question: {trans["amount"]:.0f} Kč - {trans["recipient_message"]} ({trans["account_name"] or trans["executor"]})
+            """
+            asyncio.create_task(send_md(message))
 
         await crontab(config["TRANSACTION_WATCH_CRON"]).next()
 
@@ -47,7 +78,7 @@ async def watch_flights(session):
         log.info("Executing flight watch task")
 
         flights = get_flights(session, Takeoff.DOUBRAVA, datetime.today().strftime("%Y-%m"))
-        await db.flights.insertMany(flights)
+        # await db.flights.insertMany(flights)
         # async for flight in flights:
         #     # FIXME not printing, don't know why
         #     log.debug(f"bot.send_message({CHAT_ID=}, {flight=})")
@@ -114,7 +145,7 @@ def handle_exception(loop, context):
     if "exception" in context:
         log.exception("Unhandled exception", exc_info=context["exception"])
     else:
-        log.error("Unhandled exception: %s" % context["message"])
+        log.error("Unhandled exception: %s", context["message"])
 
 
 async def main():
@@ -137,7 +168,7 @@ async def main():
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+    logging.basicConfig(level=logging.DEBUG, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
     log.info("Starting")
     try:
         asyncio.run(main())
