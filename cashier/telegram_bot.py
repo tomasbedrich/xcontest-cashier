@@ -6,6 +6,7 @@ from aiocron import crontab
 from aiogram import Bot, Dispatcher, types
 from aiogram.dispatcher.filters import CommandStart, CommandHelp, IDFilter
 from aiogram.utils import emoji
+from aiogram.utils.markdown import escape_md
 from aiohttp import ClientSession, DummyCookieJar, ClientTimeout
 from datetime import datetime
 from fiobank import FioBank
@@ -63,11 +64,14 @@ async def watch_transactions(bank, db):
 
         for trans in transactions:
             log.info(f"Processing transaction {trans}")
-            message = f"""
-            **Nový pohyb na účtu:**
-            :question: {trans["amount"]:.0f} Kč - {trans["recipient_message"]} ({trans["account_name"] or trans["executor"]})
+            message = escape_md(trans["recipient_message"])
+            from_ = escape_md(trans["account_name"] or trans["executor"])
+            amount = escape_md(int(trans["amount"]))
+            bot_say = fr"""
+            *Nový pohyb na účtu:*
+            :question: {amount} Kč \- {message} \({from_}\)
             """
-            asyncio.create_task(send_md(message))
+            asyncio.create_task(send_md(bot_say))
 
         await crontab(config["TRANSACTION_WATCH_CRON"]).next()
 
