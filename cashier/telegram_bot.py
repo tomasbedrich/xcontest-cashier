@@ -39,13 +39,13 @@ async def send_md(message):
 
 
 async def watch_transactions(bank, db):
-    await asyncio.sleep(1)  # TODO better way to wait for Telegram to be ready
     while True:
         log.info(f"Executing transaction watch task")
 
         last_transaction = await db.transactions.find_one(sort=[("transaction_id", -1)])
         from_id = last_transaction["transaction_id"]
         log.debug(f"Downloading last transactions {from_id=}")
+        retry = 3
         while True:
             try:
                 transactions = list(await asyncio.to_thread(bank.last, from_id=from_id))
@@ -53,6 +53,13 @@ async def watch_transactions(bank, db):
             except fiobank.ThrottlingError:
                 log.warning("Throttled bank API request, retrying in 30 seconds")
                 await asyncio.sleep(30)  # hardcoded according to FIO bank docs
+            except:  # NOQA
+                # for whatever else reason it fails, retry a few times
+                if retry == 0:
+                    raise
+                log.exception(f"Downloading transactions failed, retrying {retry} more times")
+                retry -= 1
+                await asyncio.sleep(5)
 
         if not transactions:
             log.info("No transactions downloaded")
