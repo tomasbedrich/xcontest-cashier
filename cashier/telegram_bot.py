@@ -173,8 +173,11 @@ async def main():
     asyncio.create_task(touch_liveness_probe(), name="touch_liveness_probe")
     asyncio.create_task(watch_transactions(bank, db), name="watch_transactions")
     async with ClientSession(
-        timeout=ClientTimeout(total=10), raise_for_status=True, cookie_jar=DummyCookieJar()
-    ) as session:  # TODO set User-Agent
+        timeout=ClientTimeout(total=10),
+        raise_for_status=True,
+        cookie_jar=DummyCookieJar(),
+        headers={"User-Agent": config["USER_AGENT"]},
+    ) as session:
         pass
         # loop.create_task(watch_flights(session, db), name="watch_flights")
     await handle_telegram()
