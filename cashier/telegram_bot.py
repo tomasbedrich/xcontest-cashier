@@ -32,10 +32,9 @@ CMD_COMMENT = "vyhubuj"
 
 
 async def send_md(message):
-    """Send Markdown message to common chat."""
+    """Send Markdown message to a common chat."""
     message = emoji.emojize(dedent(message))
-    print(message)
-    # await bot.send_message(CHAT_ID, message, parse_mode="MarkdownV2")
+    await bot.send_message(CHAT_ID, message, parse_mode="MarkdownV2")
 
 
 async def watch_transactions(bank, db):
@@ -125,10 +124,6 @@ async def touch_liveness_probe():
 
 
 async def handle_telegram():
-    # FIXME temporary deactivated
-    while True:
-        await asyncio.sleep(99)
-
     # startup message + cleanup copied from aiogram.executor
     user = await dispatcher.bot.me
     log.info(f"Starting Telegram bot: {user.full_name} [@{user.username}]")
