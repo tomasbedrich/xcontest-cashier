@@ -58,7 +58,7 @@ class Flight(object):
         pilot = Pilot(username=pilot_username, name=pilot_name)
 
         date, time = link.split("/")[-2], link.split("/")[-1]
-        dt = datetime.datetime.strptime(f"{date} {time} +0000", "%d.%m.%Y %H:%M %z")
+        dt = datetime.datetime.strptime(f"{date} {time}", "%d.%m.%Y %H:%M")
 
         return cls(id=id_, link=link, pilot=pilot, datetime=dt)
 
