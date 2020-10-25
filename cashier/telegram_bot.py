@@ -8,7 +8,7 @@ from aiogram.dispatcher.filters import CommandStart, CommandHelp, IDFilter
 from aiogram.utils import emoji
 from aiogram.utils.markdown import escape_md
 from aiohttp import ClientSession, DummyCookieJar, ClientTimeout
-from datetime import datetime
+from datetime import timedelta, date
 from fiobank import FioBank
 from motor.motor_asyncio import AsyncIOMotorClient
 from sentry_sdk.integrations.aiohttp import AioHttpIntegration
@@ -16,7 +16,7 @@ from textwrap import dedent
 
 from cashier.config import config
 from cashier.fio import transaction_to_json
-from cashier.xcontest import get_flights, Takeoff
+from cashier.xcontest import Takeoff, get_flights
 
 # telemetry
 log = logging.getLogger(__name__)
@@ -80,19 +80,29 @@ async def watch_transactions(bank, db):
             asyncio.create_task(send_md(bot_say))
 
 
-
-async def watch_flights(session):
+async def watch_flights(session, db):
+    log.info("Starting flight watch task")
     while True:
+        await crontab(config["FLIGHT_WATCH_CRON"]).next()
         log.info("Executing flight watch task")
 
-        flights = get_flights(session, Takeoff.DOUBRAVA, datetime.today().strftime("%Y-%m"))
-        # await db.flights.insertMany(flights)
-        # async for flight in flights:
-        #     # FIXME not printing, don't know why
-        #     log.debug(f"bot.send_message({CHAT_ID=}, {flight=})")
-        #     # await bot.send_message(CHAT_ID, str(flight))
+        last_flight = await db.flights.find_one(sort=[("datetime", -1)])
 
-        await crontab(config["FLIGHT_WATCH_CRON"]).next()
+        takeoff = Takeoff.DOUBRAVA
+        day = date.today() - timedelta(days=config["FLIGHT_WATCH_DAYS_BACK"])
+        log.debug(f"Downloading flights from {day} for {takeoff}")
+        flights = get_flights(session, takeoff, day)
+
+        has_flights = False
+        async for flight in flights:
+            has_flights = True
+            log.info(f"Processing flight {flight}")
+            if flight.datetime <= last_flight["datetime"]:
+                continue
+            db.flights.insert_one(flight.as_dict())
+
+        if not has_flights:
+            log.info("No flights downloaded")
 
 
 @dispatcher.message_handler(CommandStart())
@@ -176,8 +186,7 @@ async def main():
         cookie_jar=DummyCookieJar(),
         headers={"User-Agent": config["USER_AGENT"]},
     ) as session:
-        pass
-        # loop.create_task(watch_flights(session, db), name="watch_flights")
+        loop.create_task(watch_flights(session, db), name="watch_flights")
     await handle_telegram()
 
 
