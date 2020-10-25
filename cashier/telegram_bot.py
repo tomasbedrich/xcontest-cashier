@@ -39,7 +39,9 @@ async def send_md(message):
 
 
 async def watch_transactions(bank, db):
+    log.info("Starting transaction watch task")
     while True:
+        await crontab(config["TRANSACTION_WATCH_CRON"]).next()
         log.info(f"Executing transaction watch task")
 
         last_transaction = await db.transactions.find_one(sort=[("transaction_id", -1)])
@@ -63,14 +65,11 @@ async def watch_transactions(bank, db):
 
         if not transactions:
             log.info("No transactions downloaded")
-            await crontab(config["TRANSACTION_WATCH_CRON"]).next()
             continue
-
-        log.debug("Inserting transactions to DB")
-        await db.transactions.insert_many(map(transaction_to_json, transactions))
 
         for trans in transactions:
             log.info(f"Processing transaction {trans}")
+            db.transactions.insert_one(transaction_to_json(trans))
             message = escape_md(trans["recipient_message"])
             from_ = escape_md(trans["account_name"] or trans["executor"])
             amount = escape_md(int(trans["amount"]))
@@ -80,7 +79,6 @@ async def watch_transactions(bank, db):
             """
             asyncio.create_task(send_md(bot_say))
 
-        await crontab(config["TRANSACTION_WATCH_CRON"]).next()
 
 
 async def watch_flights(session):
