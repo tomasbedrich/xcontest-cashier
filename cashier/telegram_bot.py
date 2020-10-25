@@ -53,12 +53,16 @@ async def watch_transactions(db):
         log.info(f"Executing transaction watch task")
 
         last_transaction = await db.transactions.find_one(sort=[("transaction_id", -1)])
-        from_id = last_transaction["transaction_id"]
-        log.debug(f"Downloading last transactions {from_id=}")
         retry = 3
         while True:
             try:
-                transactions = list(await asyncio.to_thread(bank.last, from_id=from_id))
+                if last_transaction:
+                    from_id = last_transaction["transaction_id"]
+                    log.debug(f"Downloading last transactions {from_id=}")
+                    transactions = await asyncio.to_thread(bank.last, from_id=from_id)
+                else:
+                    log.debug(f"Downloading all transactions from 2020-01-01")
+                    transactions = await asyncio.to_thread(bank.last, from_date="2020-01-01")
                 break
             except fiobank.ThrottlingError:
                 log.warning("Throttled bank API request, retrying in 30 seconds")
@@ -70,6 +74,8 @@ async def watch_transactions(db):
                 log.exception(f"Downloading transactions failed, retrying {retry} more times")
                 retry -= 1
                 await asyncio.sleep(5)
+
+        transactions = list(transactions)
 
         if not transactions:
             log.info("No transactions downloaded")
