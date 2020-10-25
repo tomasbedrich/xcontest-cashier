@@ -116,7 +116,7 @@ async def watch_flights(db):
             async for flight in flights:
                 has_flights = True
                 log.info(f"Processing flight {flight}")
-                if flight.datetime <= last_flight["datetime"]:
+                if last_flight and flight.datetime <= last_flight["datetime"]:
                     continue
                 db.flights.insert_one(flight.as_dict())
 
