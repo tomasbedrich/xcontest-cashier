@@ -1,5 +1,3 @@
-import functools
-
 import asyncio
 import fiobank
 import logging
@@ -112,24 +110,20 @@ async def watch_flights(db):
             must_wait = True
             log.info("Executing flight watch task")
 
-            last_flight = await db.flights.find_one(sort=[("datetime", -1)])
+            await db.flights.create_index("id", unique=True)
 
             takeoff = Takeoff.DOUBRAVA
             day = date.today() - timedelta(days=config["FLIGHT_WATCH_DAYS_BACK"])
             log.debug(f"Downloading flights from {day} for {takeoff}")
             flights = get_flights(session, takeoff, day)
 
-            num_down, num_proc = 0, 0
+            num = 0
             async for flight in flights:
-                num_down += 1
-                if last_flight and flight.datetime <= last_flight["datetime"]:
-                    log.debug(f"Skipping {flight.id=} because its older than latest flight")
-                    continue
-                num_proc += 1
                 log.info(f"Processing flight {flight}")
-                db.flights.insert_one(flight.as_dict())
+                db.flights.update_one({"id": flight.id}, {"$set": flight.as_dict()}, upsert=True)
+                num += 1
 
-            log.info(f"Downloaded {num_down} flights, processed {num_proc} flights")
+            log.info(f"Processed {num} flights")
             log.debug("Execution of flight watch task done")
 
 
