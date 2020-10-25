@@ -1,4 +1,5 @@
 from llconfig import Config
+from llconfig.converters import bool_like
 from pathlib import Path
 
 config = Config()
@@ -13,6 +14,8 @@ config.init("SENTRY_ENVIRONMENT", str, "production")
 config.init("TRANSACTION_WATCH_CRON", str, "0 * * * *")  # each hour
 config.init("FLIGHT_WATCH_CRON", str, "0 20 * * *")  # every day at 20:00
 config.init("FLIGHT_WATCH_DAYS_BACK", int, 30)
+
+config.init("RUN_TASKS_AFTER_STARTUP", bool_like, False)  # if True, first run tasks and then wait for next CRON
 
 # https://www.whatismybrowser.com/guides/the-latest-user-agent/chrome
 config.init("USER_AGENT", str, "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.114 Safari/537.36")

@@ -40,8 +40,11 @@ async def send_md(message):
 
 async def watch_transactions(bank, db):
     log.info("Starting transaction watch task")
+    must_wait = False
     while True:
-        await crontab(config["TRANSACTION_WATCH_CRON"]).next()
+        if must_wait or not config["RUN_TASKS_AFTER_STARTUP"]:
+            await crontab(config["TRANSACTION_WATCH_CRON"]).next()
+        must_wait = True
         log.info(f"Executing transaction watch task")
 
         last_transaction = await db.transactions.find_one(sort=[("transaction_id", -1)])
@@ -82,8 +85,11 @@ async def watch_transactions(bank, db):
 
 async def watch_flights(session, db):
     log.info("Starting flight watch task")
+    must_wait = False
     while True:
-        await crontab(config["FLIGHT_WATCH_CRON"]).next()
+        if must_wait or not config["RUN_TASKS_AFTER_STARTUP"]:
+            await crontab(config["FLIGHT_WATCH_CRON"]).next()
+        must_wait = True
         log.info("Executing flight watch task")
 
         last_flight = await db.flights.find_one(sort=[("datetime", -1)])
