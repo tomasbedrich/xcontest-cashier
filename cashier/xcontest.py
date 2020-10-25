@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+import dataclasses
 from enum import Enum
 
 import asyncio
@@ -18,7 +18,7 @@ class Takeoff(Enum):
     KOTEROV = 13.4348, 49.7216
 
 
-@dataclass()
+@dataclasses.dataclass()
 class Pilot:
     username: str
     name: str
@@ -31,29 +31,44 @@ class Pilot:
     def __hash__(self):
         return hash(self.username)
 
+    def as_dict(self):
+        return dataclasses.asdict(self)
 
-@dataclass(frozen=True)
+
+@dataclasses.dataclass(frozen=True)
 class Flight(object):
+    id: str
     link: str
     pilot: Pilot
+    datetime: datetime.datetime
 
     @classmethod
     def from_table_row(cls, row: BeautifulSoup):
-        # link = "/world/cs/prelety/detail:Lopper/17.5.2020/14:02"
+        # <td title="FLID:2235393">...</td>
+        id_ = row.find("td")["title"].split(":")[-1]
+
+        # <a class="detail" title="detail letu" href="/world/cs/prelety/detail:Bull77/3.9.2020/14:45">...</a>
         link = row.select_one(".detail")["href"]
         if not (link.startswith("http://") or link.startswith("https://")):
             link = urljoin("https://www.xcontest.org", link)
 
         pilot_username = link.split("/")[-3].split(":")[1]
+        # <a class="plt" href="/world/cs/piloti/detail:Bull77">Tomáš Jirka</a>
         pilot_name = row.select_one(".plt").text
         pilot = Pilot(username=pilot_username, name=pilot_name)
 
-        return cls(link=link, pilot=pilot)
+        date, time = link.split("/")[-2], link.split("/")[-1]
+        dt = datetime.datetime.strptime(f"{date} {time} +0000", "%d.%m.%Y %H:%M %z")
+
+        return cls(id=id_, link=link, pilot=pilot, datetime=dt)
 
     def __eq__(self, other):
         if isinstance(other, Flight):
             return self.link == other.link
         return NotImplemented
+
+    def as_dict(self):
+        return dataclasses.asdict(self)
 
 
 def post_flight_comment(flight_id, comment):
@@ -124,8 +139,8 @@ async def _main():
     async with ClientSession(
         timeout=ClientTimeout(total=10), raise_for_status=True, cookie_jar=DummyCookieJar()
     ) as session:
-        async for flight in get_flights(session, Takeoff.DOUBRAVA, "2020-10"):
-            print(flight)
+        async for flight in get_flights(session, Takeoff.DOUBRAVA, "2020-10-18"):
+            print(flight.as_dict())
 
 
 if __name__ == "__main__":
