@@ -146,6 +146,13 @@ def handle_exception(loop, context):
     else:
         log.error("Unhandled exception: %s", context["message"])
 
+    if loop.is_closed():
+        return
+
+    logging.info("Shutting down all running tasks")
+    for task in asyncio.all_tasks():
+        task.cancel()
+
 
 async def main():
     loop = asyncio.get_event_loop()
@@ -172,4 +179,4 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        log.info("Terminating")
+        log.info("Keyboard interrupt - terminating")
