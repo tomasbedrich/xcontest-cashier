@@ -1,3 +1,5 @@
+import functools
+
 import asyncio
 import fiobank
 import logging
@@ -38,8 +40,11 @@ async def send_md(message):
     await bot.send_message(CHAT_ID, message, parse_mode="MarkdownV2")
 
 
-async def watch_transactions(bank, db):
+async def watch_transactions(db):
     log.info("Starting transaction watch task")
+
+    bank = FioBank(config["FIO_API_TOKEN"])
+
     must_wait = False
     while True:
         if must_wait or not config["RUN_TASKS_AFTER_STARTUP"]:
@@ -83,32 +88,40 @@ async def watch_transactions(bank, db):
             asyncio.create_task(send_md(bot_say))
 
 
-async def watch_flights(session, db):
+async def watch_flights(db):
     log.info("Starting flight watch task")
-    must_wait = False
-    while True:
-        if must_wait or not config["RUN_TASKS_AFTER_STARTUP"]:
-            await crontab(config["FLIGHT_WATCH_CRON"]).next()
-        must_wait = True
-        log.info("Executing flight watch task")
 
-        last_flight = await db.flights.find_one(sort=[("datetime", -1)])
+    async with ClientSession(
+        timeout=ClientTimeout(total=10),
+        raise_for_status=True,
+        cookie_jar=DummyCookieJar(),
+        headers={"User-Agent": config["USER_AGENT"]},
+    ) as session:
 
-        takeoff = Takeoff.DOUBRAVA
-        day = date.today() - timedelta(days=config["FLIGHT_WATCH_DAYS_BACK"])
-        log.debug(f"Downloading flights from {day} for {takeoff}")
-        flights = get_flights(session, takeoff, day)
+        must_wait = False
+        while True:
+            if must_wait or not config["RUN_TASKS_AFTER_STARTUP"]:
+                await crontab(config["FLIGHT_WATCH_CRON"]).next()
+            must_wait = True
+            log.info("Executing flight watch task")
 
-        has_flights = False
-        async for flight in flights:
-            has_flights = True
-            log.info(f"Processing flight {flight}")
-            if flight.datetime <= last_flight["datetime"]:
-                continue
-            db.flights.insert_one(flight.as_dict())
+            last_flight = await db.flights.find_one(sort=[("datetime", -1)])
 
-        if not has_flights:
-            log.info("No flights downloaded")
+            takeoff = Takeoff.DOUBRAVA
+            day = date.today() - timedelta(days=config["FLIGHT_WATCH_DAYS_BACK"])
+            log.debug(f"Downloading flights from {day} for {takeoff}")
+            flights = get_flights(session, takeoff, day)
+
+            has_flights = False
+            async for flight in flights:
+                has_flights = True
+                log.info(f"Processing flight {flight}")
+                if flight.datetime <= last_flight["datetime"]:
+                    continue
+                db.flights.insert_one(flight.as_dict())
+
+            if not has_flights:
+                log.info("No flights downloaded")
 
 
 @dispatcher.message_handler(CommandStart())
@@ -182,17 +195,9 @@ async def main():
     mongo_client = AsyncIOMotorClient(config["MONGO_CONNECTION_STRING"])
     db = mongo_client.default
 
-    bank = FioBank(config["FIO_API_TOKEN"])
-
     asyncio.create_task(touch_liveness_probe(), name="touch_liveness_probe")
-    asyncio.create_task(watch_transactions(bank, db), name="watch_transactions")
-    async with ClientSession(
-        timeout=ClientTimeout(total=10),
-        raise_for_status=True,
-        cookie_jar=DummyCookieJar(),
-        headers={"User-Agent": config["USER_AGENT"]},
-    ) as session:
-        loop.create_task(watch_flights(session, db), name="watch_flights")
+    asyncio.create_task(watch_transactions(db), name="watch_transactions")
+    asyncio.create_task(watch_flights(db), name="watch_flights")
     await handle_telegram()
 
 
