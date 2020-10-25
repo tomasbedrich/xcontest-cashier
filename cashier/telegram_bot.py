@@ -77,10 +77,6 @@ async def watch_transactions(db):
 
         transactions = list(transactions)
 
-        if not transactions:
-            log.info("No transactions downloaded")
-            continue
-
         for trans in transactions:
             log.info(f"Processing transaction {trans}")
             db.transactions.insert_one(transaction_to_json(trans))
@@ -92,6 +88,11 @@ async def watch_transactions(db):
             :question: {amount} Kč \- {message} \({from_}\)
             """
             asyncio.create_task(send_md(bot_say))
+
+        if not transactions:
+            log.info("No transactions downloaded")
+
+        log.debug("Execution of transaction watch task done")
 
 
 async def watch_flights(db):
@@ -118,16 +119,18 @@ async def watch_flights(db):
             log.debug(f"Downloading flights from {day} for {takeoff}")
             flights = get_flights(session, takeoff, day)
 
-            has_flights = False
+            num_down, num_proc = 0, 0
             async for flight in flights:
-                has_flights = True
-                log.info(f"Processing flight {flight}")
+                num_down += 1
                 if last_flight and flight.datetime <= last_flight["datetime"]:
+                    log.debug(f"Skipping {flight.id=} because its older than latest flight")
                     continue
+                num_proc += 1
+                log.info(f"Processing flight {flight}")
                 db.flights.insert_one(flight.as_dict())
 
-            if not has_flights:
-                log.info("No flights downloaded")
+            log.info(f"Downloaded {num_down} flights, processed {num_proc} flights")
+            log.debug("Execution of flight watch task done")
 
 
 @dispatcher.message_handler(CommandStart())
