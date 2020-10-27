@@ -4,7 +4,7 @@ import logging
 import sentry_sdk
 from aiocron import crontab
 from aiogram import Bot, Dispatcher, types
-from aiogram.dispatcher.filters import CommandStart, CommandHelp, IDFilter
+from aiogram.dispatcher.filters import CommandStart, CommandHelp
 from aiogram.utils import emoji
 from aiogram.utils.markdown import escape_md
 from aiohttp import ClientSession, DummyCookieJar, ClientTimeout
@@ -23,7 +23,7 @@ log = logging.getLogger(__name__)
 sentry_sdk.init(**config.get_namespace("SENTRY_"), integrations=[AioHttpIntegration()])
 
 # Telegram
-CHAT_ID = config["TELEGRAM_CHAT_ID"]
+CHAT_ID = config["TELEGRAM_CHAT_ID"]  # TODO setup a protection for bot to reply only to this CHAT_ID
 bot = Bot(token=config["TELEGRAM_BOT_TOKEN"])
 dispatcher = Dispatcher(bot)
 
@@ -145,13 +145,11 @@ async def help_(message: types.Message):
     )
 
 
-@dispatcher.message_handler(IDFilter(chat_id=CHAT_ID))
 @dispatcher.message_handler(commands=[CMD_PAIR])
 async def pair(message: types.Message):
     await message.answer("Ještě nefunguje")
 
 
-@dispatcher.message_handler(IDFilter(chat_id=CHAT_ID))
 @dispatcher.message_handler(commands=[CMD_COMMENT])
 async def comment(message: types.Message):
     await message.answer("Ještě nefunguje")
