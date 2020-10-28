@@ -1,4 +1,4 @@
-from typing import Optional
+import enum
 
 import asyncio
 import fiobank
@@ -12,14 +12,15 @@ from aiogram.utils.markdown import escape_md
 from aiohttp import ClientSession, DummyCookieJar, ClientTimeout
 from datetime import timedelta, date
 from fiobank import FioBank
-from motor.motor_asyncio import AsyncIOMotorClient
 from motor.core import AgnosticCollection as MongoCollection
+from motor.motor_asyncio import AsyncIOMotorClient
 from sentry_sdk.integrations.aiohttp import AioHttpIntegration
 from textwrap import dedent
+from typing import Optional
 
 from cashier.config import config
 from cashier.fio import transaction_to_json
-from cashier.xcontest import Takeoff, get_flights
+from cashier.xcontest import Takeoff, get_flights, Pilot
 
 # telemetry
 log = logging.getLogger(__name__)
@@ -48,6 +49,8 @@ def get_db():
 CMD_PAIR = "sparuj"
 CMD_COMMENT = "vyhubuj"
 
+# TODO introduce MVC
+
 
 async def send_md(message):
     """Send Markdown message to a common chat."""
@@ -55,6 +58,8 @@ async def send_md(message):
     await bot.send_message(CHAT_ID, message, parse_mode="MarkdownV2")
 
 
+# Step 1
+# Get a transaction from the bank account
 async def watch_transactions():
     log.info("Starting transaction watch task")
 
@@ -94,20 +99,104 @@ async def watch_transactions():
 
         for trans in transactions:
             log.info(f"Processing transaction {trans}")
-            get_db().transactions.insert_one(transaction_to_json(trans))
-            message = escape_md(trans["recipient_message"])
-            from_ = escape_md(trans["account_name"] or trans["executor"])
-            amount = escape_md(int(trans["amount"]))
-            bot_say = fr"""
-            *Nový pohyb na účtu:*
-            :question: {amount} Kč \- {message} \({from_}\)
-            """
-            asyncio.create_task(send_md(bot_say))
+            asyncio.create_task(process_transaction(trans))
 
         if not transactions:
             log.info("No transactions downloaded")
 
         log.debug("Execution of transaction watch task done")
+
+
+class Membership(enum.Enum):
+    unknown = "UNKNOWN"
+    daily = "DAILY"
+    yearly = "YEARLY"
+
+    @classmethod
+    def from_str(cls, input_, allow_unknown=False):
+        try:
+            res = cls(input_)
+            if not allow_unknown and res == cls.unknown:
+                raise ValueError("Unknown membership is not a valid type")
+            return res
+        except ValueError as e:
+            raise ValueError(f"Membership must be either {cls.daily.value} or {cls.yearly.value}") from None
+
+
+# Step 2
+# Backup a transaction to DB and request operators to pair a transaction.
+async def process_transaction(trans):
+    """Process a single transaction which happened on the bank account."""
+    get_db().transactions.insert_one(transaction_to_json(trans))
+
+    id_ = trans["transaction_id"]
+    message = trans["recipient_message"]
+    from_ = trans["account_name"] or trans["executor"]
+    amount = int(trans["amount"])
+    # FIXME
+    membership = Membership.unknown
+    if amount == 50:
+        membership = Membership.daily
+    if amount >= 250:
+        membership = Membership.yearly
+    # TODO change smiley?
+    bot_say = fr"""
+    *Nový pohyb na účtu:*
+    :question: {escape_md(amount)} Kč \- {escape_md(message)} \({escape_md(from_)}\)\
+    Příkaz pro spárování (uprav dle potřeby): `/{CMD_PAIR} {escape_md(id_)} {membership.value} {escape_md(message)}`
+    """
+    asyncio.create_task(send_md(bot_say))
+
+
+async def _parse_pair_msg(message: types.Message):
+    log.info("Parsing a pair command")
+    # TODO make nicer
+    parts = message.text.strip().split(" ")
+    if len(parts) != 4:
+        raise ValueError(f"Expected 3 arguments, got {len(parts) - 1}")
+    trans_id, membership, username = parts[1].strip(), parts[2].strip(), parts[3].strip()
+
+    if not trans_id.isnumeric():
+        raise ValueError("Transaction ID must be numeric")
+
+    membership = Membership.from_str(membership)
+
+    pilot = Pilot(username=username)
+    # TODO reuse session?
+    async with ClientSession(
+        timeout=ClientTimeout(total=10),
+        raise_for_status=True,
+        cookie_jar=DummyCookieJar(),
+        headers={"User-Agent": config["USER_AGENT"]},
+    ) as session:
+        await pilot.load_id(session)
+    log.debug(f"Fetched ID for {pilot}")
+
+    return trans_id, membership, pilot
+
+
+# Step 3
+# Pair a transaction (= create a membership)
+@dispatcher.message_handler(commands=[CMD_PAIR])
+async def pair(message: types.Message):
+    try:
+        transaction_id, membership, pilot = await _parse_pair_msg(message)
+    except ValueError as e:
+        return await message.answer(f"{str(e)}. Please see /help")
+    log.info(f"Pairing {transaction_id=} {membership} to {pilot}")
+
+    # TODO prevent pairing the same entry multiple times
+    # probably create some compound unique key
+
+    get_db().membership.insert_one({
+        "transaction_id": transaction_id,
+        "membership": membership.value,
+        "pilot": pilot.as_dict(),
+        "date_paired": date.today().isoformat(),
+        # TODO add date_paid (date_paired can be different)
+    })
+
+    await message.answer("Okay, paired")
 
 
 async def watch_flights():
@@ -154,17 +243,12 @@ async def help_(message: types.Message):
     await message.answer(
         dedent(
             fr"""
-    `/{CMD_PAIR} <ID_PLATBY> <XCONTEST-UZIVATEL>` \- TODO \- spáruje platbu k uživateli
+    `/{CMD_PAIR} <ID_PLATBY> <MEMBERSHIP> <XCONTEST-UZIVATEL>` \- spáruje platbu k uživateli
     `/{CMD_COMMENT} <ID_LETU>` \- TODO \- napíše zamračený komentář k letu
     """
         ),
         parse_mode="MarkdownV2",
     )
-
-
-@dispatcher.message_handler(commands=[CMD_PAIR])
-async def pair(message: types.Message):
-    await message.answer("Ještě nefunguje")
 
 
 @dispatcher.message_handler(commands=[CMD_COMMENT])
