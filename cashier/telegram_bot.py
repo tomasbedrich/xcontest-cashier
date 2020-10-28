@@ -1,3 +1,5 @@
+from typing import Optional
+
 import asyncio
 import fiobank
 import logging
@@ -11,6 +13,7 @@ from aiohttp import ClientSession, DummyCookieJar, ClientTimeout
 from datetime import timedelta, date
 from fiobank import FioBank
 from motor.motor_asyncio import AsyncIOMotorClient
+from motor.core import AgnosticCollection as MongoCollection
 from sentry_sdk.integrations.aiohttp import AioHttpIntegration
 from textwrap import dedent
 
@@ -27,6 +30,20 @@ CHAT_ID = config["TELEGRAM_CHAT_ID"]  # TODO setup a protection for bot to reply
 bot = Bot(token=config["TELEGRAM_BOT_TOKEN"])
 dispatcher = Dispatcher(bot)
 
+# Mongo
+mongo_client: Optional[AsyncIOMotorClient] = None
+db: Optional[MongoCollection] = None
+
+
+# FIXME
+def get_db():
+    global mongo_client, db
+    if db is None:
+        mongo_client = AsyncIOMotorClient(config["MONGO_CONNECTION_STRING"])
+        db = mongo_client.default
+    return db
+
+
 # constants
 CMD_PAIR = "sparuj"
 CMD_COMMENT = "vyhubuj"
@@ -38,7 +55,7 @@ async def send_md(message):
     await bot.send_message(CHAT_ID, message, parse_mode="MarkdownV2")
 
 
-async def watch_transactions(db):
+async def watch_transactions():
     log.info("Starting transaction watch task")
 
     bank = FioBank(config["FIO_API_TOKEN"])
@@ -50,7 +67,7 @@ async def watch_transactions(db):
         must_wait = True
         log.info(f"Executing transaction watch task")
 
-        last_transaction = await db.transactions.find_one(sort=[("transaction_id", -1)])
+        last_transaction = await get_db().transactions.find_one(sort=[("transaction_id", -1)])
         retry = 3
         while True:
             try:
@@ -77,7 +94,7 @@ async def watch_transactions(db):
 
         for trans in transactions:
             log.info(f"Processing transaction {trans}")
-            db.transactions.insert_one(transaction_to_json(trans))
+            get_db().transactions.insert_one(transaction_to_json(trans))
             message = escape_md(trans["recipient_message"])
             from_ = escape_md(trans["account_name"] or trans["executor"])
             amount = escape_md(int(trans["amount"]))
@@ -93,7 +110,7 @@ async def watch_transactions(db):
         log.debug("Execution of transaction watch task done")
 
 
-async def watch_flights(db):
+async def watch_flights():
     log.info("Starting flight watch task")
 
     async with ClientSession(
@@ -110,7 +127,7 @@ async def watch_flights(db):
             must_wait = True
             log.info("Executing flight watch task")
 
-            await db.flights.create_index("id", unique=True)
+            await get_db().flights.create_index("id", unique=True)
 
             takeoff = Takeoff.DOUBRAVA
             day = date.today() - timedelta(days=config["FLIGHT_WATCH_DAYS_BACK"])
@@ -120,7 +137,7 @@ async def watch_flights(db):
             num = 0
             async for flight in flights:
                 log.info(f"Processing flight {flight}")
-                db.flights.update_one({"id": flight.id}, {"$set": flight.as_dict()}, upsert=True)
+                get_db().flights.update_one({"id": flight.id}, {"$set": flight.as_dict()}, upsert=True)
                 num += 1
 
             log.info(f"Processed {num} flights")
@@ -184,21 +201,25 @@ def handle_exception(loop, context):
     if loop.is_closed():
         return
 
-    logging.info("Shutting down all running tasks")
+    log.info("Shutting down all running tasks")
     for task in asyncio.all_tasks():
         task.cancel()
+
+
+async def _smoke_test_mongo():
+    log.info(f"Smoke testing connection to Mongo")
+    await get_db().transactions.find_one()
 
 
 async def main():
     loop = asyncio.get_event_loop()
     loop.set_exception_handler(handle_exception)
 
-    mongo_client = AsyncIOMotorClient(config["MONGO_CONNECTION_STRING"])
-    db = mongo_client.default
+    await _smoke_test_mongo()
 
     asyncio.create_task(touch_liveness_probe(), name="touch_liveness_probe")
-    asyncio.create_task(watch_transactions(db), name="watch_transactions")
-    asyncio.create_task(watch_flights(db), name="watch_flights")
+    asyncio.create_task(watch_transactions(), name="watch_transactions")
+    asyncio.create_task(watch_flights(), name="watch_flights")
     await handle_telegram()
 
 
