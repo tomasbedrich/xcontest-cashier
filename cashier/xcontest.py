@@ -1,4 +1,5 @@
 import dataclasses
+import re
 from enum import Enum
 
 import asyncio
@@ -11,6 +12,8 @@ from urllib.parse import urljoin
 
 log = logging.getLogger(__name__)
 
+_pilot_id_cache = {}
+
 
 class Takeoff(Enum):
     DOUBRAVA = 13.2028, 49.4328
@@ -21,7 +24,25 @@ class Takeoff(Enum):
 @dataclasses.dataclass()
 class Pilot:
     username: str
-    name: str
+    name: str = None
+    id: int = None
+
+    async def load_id(self, session: ClientSession):
+        if self.username in _pilot_id_cache:
+            self.id = _pilot_id_cache[self.username]
+            return
+
+        detail = await (await session.get(self.url)).text()
+        match = re.search(r'XContest\.run\("pilot", .*item : (\d+)', detail, re.DOTALL)
+        if not match:
+            raise ValueError("Cannot find the pilot ID by a username, it probably doesn't exist")
+
+        self.id = int(match[1])
+        _pilot_id_cache[self.username] = self.id
+
+    @property
+    def url(self):
+        return "https://www.xcontest.org/world/en/pilots/detail:" + self.username
 
     def __eq__(self, other):
         if isinstance(other, Pilot):
