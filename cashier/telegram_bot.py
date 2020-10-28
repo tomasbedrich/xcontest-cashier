@@ -46,8 +46,8 @@ def get_db():
 
 
 # constants
-CMD_PAIR = "sparuj"
-CMD_COMMENT = "vyhubuj"
+CMD_PAIR = "pair"
+CMD_COMMENT = "comment"
 
 # TODO introduce MVC
 
@@ -141,9 +141,9 @@ async def process_transaction(trans):
         membership = Membership.yearly
     # TODO change smiley?
     bot_say = fr"""
-    *Nový pohyb na účtu:*
+    *New transaction:*
     :question: {escape_md(amount)} Kč \- {escape_md(message)} \({escape_md(from_)}\)\
-    Příkaz pro spárování (uprav dle potřeby): `/{CMD_PAIR} {escape_md(id_)} {membership.value} {escape_md(message)}`
+    Pairing command: `/{CMD_PAIR} {escape_md(id_)} {membership.value} {escape_md(message)}`
     """
     asyncio.create_task(send_md(bot_say))
 
@@ -235,7 +235,7 @@ async def watch_flights():
 
 @dispatcher.message_handler(CommandStart())
 async def start(message: types.Message):
-    await message.answer("Neboj, kasíruju pořád ;)")
+    await message.answer(emoji.emojize("Keep calm, I am working 24/7. :sunglasses:"))
 
 
 @dispatcher.message_handler(CommandHelp())
@@ -243,8 +243,8 @@ async def help_(message: types.Message):
     await message.answer(
         dedent(
             fr"""
-    `/{CMD_PAIR} <ID_PLATBY> <MEMBERSHIP> <XCONTEST-UZIVATEL>` \- spáruje platbu k uživateli
-    `/{CMD_COMMENT} <ID_LETU>` \- TODO \- napíše zamračený komentář k letu
+    `/{CMD_PAIR} <TRANSACTION_ID> <MEMBERSHIP_TYPE> <PILOT_USERNAME>` \- pair a transaction to a pilot (create a membership of given type) 
+    `/{CMD_COMMENT} <FLIGHT_ID>` \- write an angry comment to the flight
     """
         ),
         parse_mode="MarkdownV2",
@@ -253,7 +253,7 @@ async def help_(message: types.Message):
 
 @dispatcher.message_handler(commands=[CMD_COMMENT])
 async def comment(message: types.Message):
-    await message.answer("Ještě nefunguje")
+    await message.answer("Not working yet")
 
 
 async def touch_liveness_probe():
