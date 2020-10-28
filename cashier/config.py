@@ -14,6 +14,7 @@ config.init("SENTRY_ENVIRONMENT", str, "production")
 config.init("TRANSACTION_WATCH_CRON", str, "0 * * * *")  # each hour
 config.init("FLIGHT_WATCH_CRON", str, "0 20 * * *")  # every day at 20:00
 config.init("FLIGHT_WATCH_DAYS_BACK", int, 30)
+config.init("FLIGHT_PROCESS_CRON", str, "0 21 * * *")  # every day at 21:00
 
 config.init("RUN_TASKS_AFTER_STARTUP", bool_like, False)  # if True, first run tasks and then wait for next CRON
 

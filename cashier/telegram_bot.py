@@ -98,7 +98,6 @@ async def watch_transactions():
         transactions = list(transactions)
 
         for trans in transactions:
-            log.info(f"Processing transaction {trans}")
             asyncio.create_task(process_transaction(trans))
 
         if not transactions:
@@ -127,6 +126,7 @@ class Membership(enum.Enum):
 # Backup a transaction to DB and request operators to pair a transaction.
 async def process_transaction(trans):
     """Process a single transaction which happened on the bank account."""
+    log.info(f"Processing transaction {trans}")
     get_db().transactions.insert_one(transaction_to_json(trans))
 
     id_ = trans["transaction_id"]
@@ -190,7 +190,7 @@ async def pair(message: types.Message):
 
     get_db().membership.insert_one({
         "transaction_id": transaction_id,
-        "membership": membership.value,
+        "type": membership.value,
         "pilot": pilot.as_dict(),
         "date_paired": date.today().isoformat(),
         # TODO add date_paid (date_paired can be different)
@@ -225,12 +225,70 @@ async def watch_flights():
 
             num = 0
             async for flight in flights:
-                log.info(f"Processing flight {flight}")
+                log.info(f"Storing flight {flight}")
                 get_db().flights.update_one({"id": flight.id}, {"$set": flight.as_dict()}, upsert=True)
                 num += 1
 
-            log.info(f"Processed {num} flights")
+            log.info(f"Stored {num} flights")
             log.debug("Execution of flight watch task done")
+
+
+async def process_flights():
+    # TODO may probably use Mongo's watch feature:
+    # https://motor.readthedocs.io/en/stable/api-asyncio/asyncio_motor_collection.html#motor.motor_asyncio.AsyncIOMotorCollection.watch
+    log.info("Starting flight process task")
+
+    must_wait = False
+    while True:
+        # this task is so fast that we must wait >= 1 sec for CRON not to trigger multiple times
+        # TODO remove when not necessary
+        await asyncio.sleep(1)
+        if must_wait or not config["RUN_TASKS_AFTER_STARTUP"]:
+            await crontab(config["FLIGHT_PROCESS_CRON"]).next()
+        must_wait = True
+        log.info("Executing flight process task")
+
+        flights = get_db().flights.find({"$or": [{"processed": False}, {"processed": None}]})
+        async for flight in flights:
+            asyncio.create_task(process_flight(flight))
+
+        log.debug("Execution of flight process task done")
+
+
+async def process_flight(flight):
+    log.info(f"Processing flight {flight}")
+
+    pilot_username = flight["pilot"]["username"]
+    flight_date: date = flight["datetime"].date()
+    # TODO use more filters:
+    # - yearly first (then daily)
+    # - not used daily
+    # - used yearly only for current year
+    membership = await get_db().membership.find_one({
+        "pilot.username": pilot_username,
+        "$or": [
+            {"type": Membership.daily.value, "used_for": flight_date.isoformat()},
+            {"type": Membership.yearly.value, "used_for": flight_date.year},
+            {"used_for": None},
+        ],
+    })
+    # TODO maybe we somehow want to use date_paired:?
+    if not membership:
+        # TODO this is the case we are looking for
+        bot_say = fr"""
+        *Offending flight:*
+        {escape_md(flight["link"])}
+        Comment command: `/{CMD_COMMENT} {escape_md(flight["id"])}`
+        """
+        asyncio.create_task(send_md(bot_say))
+    else:
+        membership_type = Membership(membership["type"])
+        if membership_type == Membership.yearly:
+            get_db().membership.update_one({"_id": membership["_id"]}, {"$set": {"used_for": flight_date.year}})
+        elif membership_type == Membership.daily:
+            get_db().membership.update_one({"_id": membership["_id"]}, {"$set": {"used_for": flight_date.isoformat()}})
+
+    get_db().flights.update_one({"_id": flight["_id"]}, {"$set": {"processed": True}})
 
 
 @dispatcher.message_handler(CommandStart())
@@ -253,7 +311,7 @@ async def help_(message: types.Message):
 
 @dispatcher.message_handler(commands=[CMD_COMMENT])
 async def comment(message: types.Message):
-    await message.answer("Not working yet")
+    await message.answer("Not implemented yet")
 
 
 async def touch_liveness_probe():
@@ -304,6 +362,7 @@ async def main():
     asyncio.create_task(touch_liveness_probe(), name="touch_liveness_probe")
     asyncio.create_task(watch_transactions(), name="watch_transactions")
     asyncio.create_task(watch_flights(), name="watch_flights")
+    asyncio.create_task(process_flights(), name="process_flights")
     await handle_telegram()
 
 
