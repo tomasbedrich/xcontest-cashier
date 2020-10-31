@@ -9,7 +9,6 @@ import pymongo
 import sentry_sdk
 from aiogram import Bot, Dispatcher, types
 from aiogram.dispatcher.filters import CommandStart, CommandHelp
-from aiogram.utils import emoji
 from aiogram.utils.markdown import escape_md
 from aiohttp import ClientSession, DummyCookieJar, ClientTimeout
 from fiobank import FioBank
@@ -18,7 +17,9 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from sentry_sdk.integrations.aiohttp import AioHttpIntegration
 
 from cashier.config import config
+from cashier.telegram_bot.const import CMD_PAIR, CMD_COMMENT
 from cashier.telegram_bot.models import TransactionStorage, Membership, Transaction
+from cashier.telegram_bot.views import new_transaction_msg
 from cashier.util import cron_task
 from cashier.xcontest import Takeoff, get_flights, Pilot, Flight
 
@@ -44,11 +45,6 @@ def get_db():
         db = mongo_client.default
     return db
 
-
-# constants
-CMD_PAIR = "pair"
-CMD_COMMENT = "comment"
-
 # TODO introduce MVC
 
 cron_task = functools.partial(cron_task, run_after_startup=config["RUN_TASKS_AFTER_STARTUP"])
@@ -56,8 +52,6 @@ cron_task = functools.partial(cron_task, run_after_startup=config["RUN_TASKS_AFT
 
 async def send_md(message):
     """Send Markdown message to a common chat."""
-    message = emoji.emojize(dedent(message))
-    await bot.send_message(CHAT_ID, message, parse_mode="MarkdownV2")
 
 
 # Step 1
@@ -80,21 +74,8 @@ async def process_transaction(trans_storage: TransactionStorage, trans: Transact
     except ValueError:
         membership = None
 
-    # TODO change smiley?
-    icon = ":white_check_mark:" if membership else ":warning:"
-    bot_say = fr"""
-    *New transaction:*
-    {icon} {escape_md(trans.amount)} Kč \- {escape_md(trans.message)} \({escape_md(trans.from_)}\)
-    """
-    if membership:
-        bot_say += fr"""\
-        Pairing command: `/{CMD_PAIR} {escape_md(trans.id_)} {membership.value} {escape_md(trans.message)}`
-        """
-    else:
-        bot_say += fr"""\
-        Membership type not detected. Please resolve manually. 
-        """
-    asyncio.create_task(send_md(bot_say))
+    msg = new_transaction_msg(trans, membership)
+    await bot.send_message(CHAT_ID, msg, parse_mode="HTML")
 
 
 async def _parse_pair_msg(message: types.Message):
