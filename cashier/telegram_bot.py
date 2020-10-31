@@ -100,10 +100,10 @@ async def watch_transactions():
         for trans in transactions:
             asyncio.create_task(process_transaction(trans))
 
-        if not transactions:
+        if transactions:
+            log.info(f"Downloaded {len(transactions)} transactions")
+        else:
             log.info("No transactions downloaded")
-
-        log.debug("Execution of transaction watch task done")
 
 
 class Membership(enum.Enum):
@@ -229,7 +229,6 @@ async def watch_flights():
                 num += 1
 
             log.info(f"Downloaded {num} flights")
-            log.debug("Execution of flight watch task done")
 
 
 async def process_flight(flight: Flight):
@@ -238,10 +237,10 @@ async def process_flight(flight: Flight):
     # TODO can possibly be reduced to write only one time after processing
     existing_flight = await get_db().flights.find_one({"id": flight.id})
     if not existing_flight:
-        log.debug(f"Storing flight into DB")
+        log.debug(f"Storing flight {flight.id} into DB")
         await get_db().flights.insert_one(flight.as_dict())
     elif existing_flight["processed"]:
-        log.debug("Skipping as flight is already processed")
+        log.debug(f"Skipping flight {flight.id} as it is already processed")
         return
 
     pilot_username = flight.pilot.username
@@ -260,7 +259,7 @@ async def process_flight(flight: Flight):
     })
     # TODO maybe we somehow want to use date_paired:?
     if not membership:
-        log.debug("No membership found, reporting")
+        log.debug(f"No membership found for flight {flight.id}, reporting")
         # TODO this is the case we are looking for
         bot_say = fr"""
         *Offending flight:*
@@ -269,7 +268,7 @@ async def process_flight(flight: Flight):
         """
         asyncio.create_task(send_md(bot_say))
     else:
-        log.debug(f"Found valid membership: {membership}")
+        log.debug(f"Found valid membership for flight {flight.id}: {membership}")
         membership_type = Membership(membership["type"])
         # following updates are idempotent, therefore
         if membership_type == Membership.yearly:
@@ -277,6 +276,7 @@ async def process_flight(flight: Flight):
         elif membership_type == Membership.daily:
             get_db().membership.update_one({"_id": membership["_id"]}, {"$set": {"used_for": flight_date.isoformat()}})
 
+    log.debug(f"Setting flight {flight.id} as processed")
     get_db().flights.update_one({"id": flight.id}, {"$set": {"processed": True}})
 
 
