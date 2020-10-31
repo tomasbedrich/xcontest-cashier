@@ -1,27 +1,27 @@
-import enum
-
 import asyncio
-import fiobank
+import enum
+import functools
 import logging
+from datetime import timedelta, date
+from textwrap import dedent
+from typing import Optional
+
 import pymongo
 import sentry_sdk
-from aiocron import crontab
 from aiogram import Bot, Dispatcher, types
 from aiogram.dispatcher.filters import CommandStart, CommandHelp
 from aiogram.utils import emoji
 from aiogram.utils.markdown import escape_md
 from aiohttp import ClientSession, DummyCookieJar, ClientTimeout
-from datetime import timedelta, date
 from fiobank import FioBank
 from motor.core import AgnosticCollection as MongoCollection
 from motor.motor_asyncio import AsyncIOMotorClient
 from sentry_sdk.integrations.aiohttp import AioHttpIntegration
-from textwrap import dedent
-from typing import Optional
 
 from cashier.config import config
 from cashier.fio import transaction_to_json
 from cashier.telegram_bot.models import TransactionStorage
+from cashier.util import cron_task
 from cashier.xcontest import Takeoff, get_flights, Pilot, Flight
 
 # telemetry
@@ -53,6 +53,8 @@ CMD_COMMENT = "comment"
 
 # TODO introduce MVC
 
+cron_task = functools.partial(cron_task, run_after_startup=config["RUN_TASKS_AFTER_STARTUP"])
+
 
 async def send_md(message):
     """Send Markdown message to a common chat."""
@@ -62,18 +64,10 @@ async def send_md(message):
 
 # Step 1
 # Get a transaction from the bank account
+@cron_task(config["TRANSACTION_WATCH_CRON"])
 async def watch_transactions(trans_storage: TransactionStorage):
-    log.info("Starting transaction watch task")
-
-    must_wait = False
-    while True:
-        if must_wait or not config["RUN_TASKS_AFTER_STARTUP"]:
-            await crontab(config["TRANSACTION_WATCH_CRON"]).next()
-        must_wait = True
-        log.info(f"Executing transaction watch task")
-
-        for trans in await trans_storage.get_new_transactions():
-            asyncio.create_task(process_transaction(trans))
+    for trans in await trans_storage.get_new_transactions():
+        asyncio.create_task(process_transaction(trans))
 
 
 class Membership(enum.Enum):
@@ -134,10 +128,10 @@ async def _parse_pair_msg(message: types.Message):
     pilot = Pilot(username=username)
     # TODO reuse session?
     async with ClientSession(
-        timeout=ClientTimeout(total=10),
-        raise_for_status=True,
-        cookie_jar=DummyCookieJar(),
-        headers={"User-Agent": config["USER_AGENT"]},
+            timeout=ClientTimeout(total=10),
+            raise_for_status=True,
+            cookie_jar=DummyCookieJar(),
+            headers={"User-Agent": config["USER_AGENT"]},
     ) as session:
         await pilot.load_id(session)
     log.debug(f"Fetched ID for {pilot}")
@@ -171,34 +165,25 @@ async def pair(message: types.Message):
     await message.answer("Okay, paired")
 
 
+@cron_task(config["FLIGHT_WATCH_CRON"])
 async def watch_flights():
-    log.info("Starting flight watch task")
-
     async with ClientSession(
-        timeout=ClientTimeout(total=10),
-        raise_for_status=True,
-        cookie_jar=DummyCookieJar(),
-        headers={"User-Agent": config["USER_AGENT"]},
+            timeout=ClientTimeout(total=10),
+            raise_for_status=True,
+            cookie_jar=DummyCookieJar(),
+            headers={"User-Agent": config["USER_AGENT"]},
     ) as session:
+        takeoff = Takeoff.DOUBRAVA
+        day = date.today() - timedelta(days=config["FLIGHT_WATCH_DAYS_BACK"])
+        log.debug(f"Downloading flights from {day} for {takeoff}")
+        flights = get_flights(session, takeoff, day)
 
-        must_wait = False
-        while True:
-            if must_wait or not config["RUN_TASKS_AFTER_STARTUP"]:
-                await crontab(config["FLIGHT_WATCH_CRON"]).next()
-            must_wait = True
-            log.info("Executing flight watch task")
+        num = 0
+        async for flight in flights:
+            asyncio.create_task(process_flight(flight))
+            num += 1
 
-            takeoff = Takeoff.DOUBRAVA
-            day = date.today() - timedelta(days=config["FLIGHT_WATCH_DAYS_BACK"])
-            log.debug(f"Downloading flights from {day} for {takeoff}")
-            flights = get_flights(session, takeoff, day)
-
-            num = 0
-            async for flight in flights:
-                asyncio.create_task(process_flight(flight))
-                num += 1
-
-            log.info(f"Downloaded {num} flights")
+        log.info(f"Downloaded {num} flights")
 
 
 async def process_flight(flight: Flight):
