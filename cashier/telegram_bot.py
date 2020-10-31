@@ -20,7 +20,7 @@ from typing import Optional
 
 from cashier.config import config
 from cashier.fio import transaction_to_json
-from cashier.xcontest import Takeoff, get_flights, Pilot
+from cashier.xcontest import Takeoff, get_flights, Pilot, Flight
 
 # telemetry
 log = logging.getLogger(__name__)
@@ -202,6 +202,8 @@ async def pair(message: types.Message):
 async def watch_flights():
     log.info("Starting flight watch task")
 
+    await get_db().flights.create_index("id", unique=True)
+
     async with ClientSession(
         timeout=ClientTimeout(total=10),
         raise_for_status=True,
@@ -216,8 +218,6 @@ async def watch_flights():
             must_wait = True
             log.info("Executing flight watch task")
 
-            await get_db().flights.create_index("id", unique=True)
-
             takeoff = Takeoff.DOUBRAVA
             day = date.today() - timedelta(days=config["FLIGHT_WATCH_DAYS_BACK"])
             log.debug(f"Downloading flights from {day} for {takeoff}")
@@ -225,41 +225,22 @@ async def watch_flights():
 
             num = 0
             async for flight in flights:
-                log.info(f"Storing flight {flight}")
-                get_db().flights.update_one({"id": flight.id}, {"$set": flight.as_dict()}, upsert=True)
+                asyncio.create_task(process_flight(flight))
                 num += 1
 
-            log.info(f"Stored {num} flights")
+            log.info(f"Downloaded {num} flights")
             log.debug("Execution of flight watch task done")
 
 
-async def process_flights():
-    # TODO may probably use Mongo's watch feature:
-    # https://motor.readthedocs.io/en/stable/api-asyncio/asyncio_motor_collection.html#motor.motor_asyncio.AsyncIOMotorCollection.watch
-    log.info("Starting flight process task")
-
-    must_wait = False
-    while True:
-        # this task is so fast that we must wait >= 1 sec for CRON not to trigger multiple times
-        # TODO remove when not necessary
-        await asyncio.sleep(1)
-        if must_wait or not config["RUN_TASKS_AFTER_STARTUP"]:
-            await crontab(config["FLIGHT_PROCESS_CRON"]).next()
-        must_wait = True
-        log.info("Executing flight process task")
-
-        flights = get_db().flights.find({"$or": [{"processed": False}, {"processed": None}]})
-        async for flight in flights:
-            asyncio.create_task(process_flight(flight))
-
-        log.debug("Execution of flight process task done")
-
-
-async def process_flight(flight):
+async def process_flight(flight: Flight):
     log.info(f"Processing flight {flight}")
 
-    pilot_username = flight["pilot"]["username"]
-    flight_date: date = flight["datetime"].date()
+    # TODO can possibly be reduced to write only one time after processing
+    log.debug(f"Storing flight into DB")
+    get_db().flights.update_one({"id": flight.id}, {"$set": flight.as_dict()}, upsert=True)
+
+    pilot_username = flight.pilot.username
+    flight_date = flight.datetime.date()
     # TODO use more filters:
     # - yearly first (then daily)
     # - not used daily
@@ -277,8 +258,8 @@ async def process_flight(flight):
         # TODO this is the case we are looking for
         bot_say = fr"""
         *Offending flight:*
-        {escape_md(flight["link"])}
-        Comment command: `/{CMD_COMMENT} {escape_md(flight["id"])}`
+        {escape_md(flight.link)}
+        Comment command: `/{CMD_COMMENT} {escape_md(flight.id)}`
         """
         asyncio.create_task(send_md(bot_say))
     else:
@@ -288,7 +269,7 @@ async def process_flight(flight):
         elif membership_type == Membership.daily:
             get_db().membership.update_one({"_id": membership["_id"]}, {"$set": {"used_for": flight_date.isoformat()}})
 
-    get_db().flights.update_one({"_id": flight["_id"]}, {"$set": {"processed": True}})
+    get_db().flights.update_one({"id": flight.id}, {"$set": {"processed": True}})
 
 
 @dispatcher.message_handler(CommandStart())
