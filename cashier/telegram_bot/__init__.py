@@ -2,7 +2,6 @@ import asyncio
 import functools
 import logging
 from datetime import timedelta, date
-from textwrap import dedent
 from typing import Optional
 
 import pymongo
@@ -19,7 +18,7 @@ from sentry_sdk.integrations.aiohttp import AioHttpIntegration
 from cashier.config import config
 from cashier.telegram_bot.const import CMD_PAIR, CMD_COMMENT
 from cashier.telegram_bot.models import TransactionStorage, Membership, Transaction
-from cashier.telegram_bot.views import new_transaction_msg
+from cashier.telegram_bot.views import new_transaction_msg, help_msg, start_msg
 from cashier.util import cron_task
 from cashier.xcontest import Takeoff, get_flights, Pilot, Flight
 
@@ -203,24 +202,17 @@ async def process_flight(flight: Flight):
 
 @dispatcher.message_handler(CommandStart())
 async def start(message: types.Message):
-    await message.answer(emoji.emojize("Keep calm, I am working 24/7. :sunglasses:"))
+    await message.answer(start_msg(), parse_mode="HTML")
 
 
 @dispatcher.message_handler(CommandHelp())
 async def help_(message: types.Message):
-    await message.answer(
-        dedent(
-            fr"""
-    `/{CMD_PAIR} <TRANSACTION_ID> <MEMBERSHIP_TYPE> <PILOT_USERNAME>` \- pair a transaction to a pilot (create a membership of given type) 
-    `/{CMD_COMMENT} <FLIGHT_ID>` \- write an angry comment to the flight
-    """
-        ),
-        parse_mode="MarkdownV2",
-    )
+    await message.answer(help_msg(), parse_mode="HTML")
 
 
 @dispatcher.message_handler(commands=[CMD_COMMENT])
 async def comment(message: types.Message):
+    # TODO
     await message.answer("Not implemented yet")
 
 

@@ -1,8 +1,8 @@
 from typing import Optional
 
-import emoji
+from aiogram.utils.emoji import emojize
 
-from cashier.telegram_bot.const import CMD_PAIR
+from cashier.telegram_bot.const import CMD_PAIR, CMD_COMMENT
 from cashier.telegram_bot.models import Transaction, Membership
 
 
@@ -24,4 +24,16 @@ def new_transaction_msg(transaction: Transaction, membership: Optional[Membershi
         lines.append(f"Pairing command: <code>/{CMD_PAIR} {transaction.id_} {membership.value} {pilot_username}</code>")
     else:
         lines.append("Membership type not detected. Please resolve manually.")
+    return "\n".join(lines)
+
+
+def start_msg():
+    return emojize("Keep calm, I am working 24/7. :sunglasses:")
+
+
+def help_msg():
+    lines = [
+        f"<code>/{CMD_PAIR} &lt;TRANSACTION_ID&gt; &lt;MEMBERSHIP_TYPE&gt; &lt;PILOT_USERNAME&gt;</code> - pair a transaction to a pilot (create a membership of given type)",
+        f"<code>/{CMD_COMMENT} &lt;FLIGHT_ID&gt;</code> - write an angry comment to the flight",
+    ]
     return "\n".join(lines)
