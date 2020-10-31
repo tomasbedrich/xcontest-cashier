@@ -16,10 +16,10 @@ from sentry_sdk.integrations.aiohttp import AioHttpIntegration
 
 from cashier.config import config
 from cashier.telegram_bot.const import CMD_PAIR, CMD_COMMENT
-from cashier.telegram_bot.models import TransactionStorage, Membership, Transaction, MembershipStorage
+from cashier.telegram_bot.models import TransactionStorage, MembershipStorage, FlightStorage, Transaction, Membership
 from cashier.telegram_bot.views import new_transaction_msg, help_msg, start_msg, offending_flight_msg
 from cashier.util import cron_task, err_to_answer
-from cashier.xcontest import Takeoff, get_flights, Pilot, Flight
+from cashier.xcontest import Takeoff, Pilot, Flight
 
 # telemetry
 log = logging.getLogger(__name__)
@@ -30,6 +30,7 @@ CHAT_ID = config["TELEGRAM_CHAT_ID"]  # TODO setup a protection for bot to reply
 bot = Bot(token=config["TELEGRAM_BOT_TOKEN"])
 dispatcher = Dispatcher(bot)
 
+session: Optional[ClientSession] = None
 membership_storage: Optional[MembershipStorage] = None
 
 # Mongo
@@ -90,14 +91,7 @@ async def _parse_pair_msg(message: types.Message) -> Membership:
     membership_type = Membership.Type.from_str(membership_type)
 
     pilot = Pilot(username=username)
-    # TODO reuse session?
-    async with ClientSession(
-        timeout=ClientTimeout(total=10),
-        raise_for_status=True,
-        cookie_jar=DummyCookieJar(),
-        headers={"User-Agent": config["USER_AGENT"]},
-    ) as session:
-        await pilot.load_id(session)
+    await pilot.load_id(session)
     log.debug(f"Fetched ID for {pilot}")
 
     return Membership(trans_id, membership_type, pilot)
@@ -115,69 +109,31 @@ async def pair(message: types.Message):
 
 
 @cron_task(config["FLIGHT_WATCH_CRON"])
-async def watch_flights():
-    async with ClientSession(
-        timeout=ClientTimeout(total=10),
-        raise_for_status=True,
-        cookie_jar=DummyCookieJar(),
-        headers={"User-Agent": config["USER_AGENT"]},
-    ) as session:
-        takeoff = Takeoff.DOUBRAVA
-        day = date.today() - timedelta(days=config["FLIGHT_WATCH_DAYS_BACK"])
-        log.debug(f"Downloading flights from {day} for {takeoff}")
-        flights = get_flights(session, takeoff, day)
-
-        num = 0
-        async for flight in flights:
-            asyncio.create_task(process_flight(flight))
-            num += 1
-
-        log.info(f"Downloaded {num} flights")
+async def watch_flights(flight_storage, membership_storage):
+    takeoff = Takeoff.DOUBRAVA  # TODO watch all Takeoffs
+    day = date.today() - timedelta(days=config["FLIGHT_WATCH_DAYS_BACK"])
+    async for flight in flight_storage.get_new_flights(takeoff, day):
+        asyncio.create_task(process_flight(flight_storage, membership_storage, flight))
 
 
-async def process_flight(flight: Flight):
-    log.info(f"Processing {flight}")
-
-    # TODO can possibly be reduced to write only one time after processing
-    existing_flight = await get_db().flights.find_one({"id": flight.id})
-    if not existing_flight:
-        log.debug(f"Storing flight {flight.id} into DB")
-        await get_db().flights.insert_one(flight.as_dict())
-    elif existing_flight["processed"]:
-        log.debug(f"Skipping flight {flight.id} as it is already processed")
+async def process_flight(flight_storage: FlightStorage, membership_storage: MembershipStorage, flight: Flight):
+    exists = await flight_storage.does_flight_exist(flight.id)
+    if exists:
+        log.info(f"Skipping {flight} as it is already processed")
         return
-
-    pilot_username = flight.pilot.username
-    flight_date = flight.datetime.date()
-    # TODO use more filters:
-    # - yearly first (then daily)
-    # - not used daily
-    # - used yearly only for current year
-    membership = await get_db().membership.find_one(
-        {
-            "pilot.username": pilot_username,
-            "$or": [
-                {"type": Membership.Type.daily.value, "used_for": flight_date.isoformat()},
-                {"type": Membership.Type.yearly.value, "used_for": flight_date.year},
-                {"used_for": None},
-            ],
-        }
-    )
+    else:
+        log.info(f"Processing {flight}")
+    membership = await membership_storage.get_by_flight(flight)
     if not membership:
         log.debug(f"No membership found for flight {flight.id}, reporting")
         msg = offending_flight_msg(flight)
         asyncio.create_task(bot.send_message(CHAT_ID, msg, parse_mode="HTML"))
     else:
-        log.debug(f"Found valid membership for flight {flight.id}: {membership}")
-        membership_type = Membership.Type.from_str(membership["type"])
-        # following updates are idempotent, therefore
-        if membership_type == Membership.Type.yearly:
-            get_db().membership.update_one({"_id": membership["_id"]}, {"$set": {"used_for": flight_date.year}})
-        elif membership_type == Membership.Type.daily:
-            get_db().membership.update_one({"_id": membership["_id"]}, {"$set": {"used_for": flight_date.isoformat()}})
+        log.debug(f"Found membership for flight {flight.id}: {membership}")
+        # following updates are idempotent
+        await membership_storage.set_used_for(membership, flight)
 
-    log.debug(f"Setting flight {flight.id} as processed")
-    get_db().flights.update_one({"id": flight.id}, {"$set": {"processed": True}})
+    await flight_storage.store_flight(flight)
 
 
 @dispatcher.message_handler(CommandStart())
@@ -244,7 +200,7 @@ async def setup_mongo_indices():
 
 
 async def main():
-    global membership_storage
+    global membership_storage, flight_storage, session
 
     loop = asyncio.get_event_loop()
     loop.set_exception_handler(handle_exception)
@@ -252,11 +208,21 @@ async def main():
     await _smoke_test_mongo()
     await setup_mongo_indices()
 
+    # TODO close session
+    session = ClientSession(
+        timeout=ClientTimeout(total=10),
+        raise_for_status=True,
+        cookie_jar=DummyCookieJar(),
+        headers={"User-Agent": config["USER_AGENT"]},
+    )
+
     bank = FioBank(config["FIO_API_TOKEN"])
+
     trans_storage = TransactionStorage(bank, get_db().transactions)
     membership_storage = MembershipStorage(get_db().membership)
+    flight_storage = FlightStorage(session, get_db().flights)
 
     asyncio.create_task(touch_liveness_probe(), name="touch_liveness_probe")
     asyncio.create_task(watch_transactions(trans_storage), name="watch_transactions")
-    asyncio.create_task(watch_flights(), name="watch_flights")
+    asyncio.create_task(watch_flights(flight_storage, membership_storage), name="watch_flights")
     await handle_telegram()

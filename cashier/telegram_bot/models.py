@@ -3,12 +3,13 @@ import dataclasses
 import datetime
 import enum
 import logging
-from typing import List, Optional
+from typing import List, Optional, AsyncIterable
 
 import fiobank
+from aiohttp import ClientSession
 from motor.core import AgnosticCollection as MongoCollection
 
-from cashier.xcontest import Pilot
+from cashier.xcontest import Pilot, get_flights, Flight
 
 log = logging.getLogger(__name__)
 
@@ -47,6 +48,16 @@ class Membership:
             "date_paired": self.date_paired.isoformat() if self.date_paired else None,
         }
 
+    @classmethod
+    def from_dict(cls, obj):
+        return cls(
+            transaction_id=obj["transaction_id"],
+            type=cls.Type.from_str(obj["type"]),
+            pilot=Pilot.from_dict(obj["pilot"]),
+            date_paired=datetime.date.fromisoformat(obj["date_paired"]) if obj["date_paired"] else None,
+            used_for=obj.get("used_for"),
+        )
+
 
 class MembershipStorage:
     def __init__(self, db_collection: MongoCollection):
@@ -61,6 +72,44 @@ class MembershipStorage:
                 f"This transaction is already paired as {existing['type']} for pilot {existing['pilot']['username']}"
             )
         await self.db_collection.insert_one(membership.as_dict())
+
+    async def get_by_flight(self, flight: Flight) -> Membership:
+        """
+        Return most suitable membership for given flight (its pilot).
+
+        "Most suitable" means (in this order):
+        1. Yearly membership bound to current year.
+        2. Daily membership bound to current day.
+        3. Any other unbound membership.
+        """
+        # TODO use more filters:
+        # - yearly first (then daily)
+        # - not used daily
+        # - used yearly only for current year
+        res = await self.db_collection.find_one(
+            {
+                "pilot.username": flight.pilot.username,
+                "$or": [
+                    {"type": Membership.Type.daily.value, "used_for": flight.datetime.date().isoformat()},
+                    {"type": Membership.Type.yearly.value, "used_for": flight.datetime.year},
+                    {"used_for": None},
+                ],
+            }
+        )
+        return Membership.from_dict(res) if res else None
+
+    async def set_used_for(self, membership: Membership, flight: Flight):
+        """
+        Set membership to be used for given flight.
+        """
+        if membership.type == Membership.Type.yearly:
+            used_for = flight.datetime.year
+        elif membership.type == Membership.Type.daily:
+            used_for = flight.datetime.date().isoformat()
+        await self.db_collection.update_one(
+            {"transaction_id": membership.transaction_id},
+            {"$set": {"used_for": used_for}},  # NOQA - let's crash if `used_for` is not set, this shouldn't happen
+        )
 
 
 @dataclasses.dataclass()
@@ -139,3 +188,28 @@ class TransactionStorage:
 
     async def store_transaction(self, transaction: Transaction):
         await self.db_collection.insert_one(transaction.as_dict())
+
+
+class FlightStorage:
+    def __init__(self, session: ClientSession, db_collection: MongoCollection):
+        self.session = session
+        self.db_collection = db_collection
+
+    async def get_new_flights(self, takeoff, day) -> AsyncIterable[Flight]:
+        num = 0
+        async for flight in get_flights(self.session, takeoff, day):
+            yield flight
+            num += 1
+        log.info(f"Downloaded {num} flights")
+
+    async def store_flight(self, flight: Flight):
+        """
+        Store a flight in the DB if it doesn't exist yet.
+        """
+        existing_flight = await self.db_collection.find_one({"id": flight.id})
+        if existing_flight:
+            return
+        await self.db_collection.insert_one(flight.as_dict())
+
+    async def does_flight_exist(self, id_):
+        return bool(await self.db_collection.find_one({"id": id_}))

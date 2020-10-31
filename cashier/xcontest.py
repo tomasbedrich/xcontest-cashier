@@ -55,6 +55,14 @@ class Pilot:
     def as_dict(self):
         return dataclasses.asdict(self)
 
+    @classmethod
+    def from_dict(cls, obj: dict):
+        return cls(
+            username=obj["username"],
+            name=obj.get("name"),
+            id=obj.get("id"),
+        )
+
 
 @dataclasses.dataclass(frozen=True)
 class Flight(object):
