@@ -1,6 +1,9 @@
 import asyncio
+import dataclasses
+import datetime
+import enum
 import logging
-from typing import List
+from typing import List, Optional
 
 import fiobank
 from motor.core import AgnosticCollection as MongoCollection
@@ -8,12 +11,60 @@ from motor.core import AgnosticCollection as MongoCollection
 log = logging.getLogger(__name__)
 
 
+class Membership(enum.Enum):
+    daily = "DAILY"
+    yearly = "YEARLY"
+
+    @classmethod
+    def from_str(cls, input_: str):
+        try:
+            return cls(input_.upper())
+        except ValueError:
+            raise ValueError(f"Membership must be either {cls.daily.value} or {cls.yearly.value}") from None
+
+    @classmethod
+    def from_amount(cls, amount: int):
+        if amount == 50:
+            return Membership.daily
+        if amount >= 100:  # FIXME set to board agreed amount (probably 250)
+            return Membership.yearly
+        raise ValueError(f"Amount of {amount} doesn't correspond to any membership level.")
+
+
+@dataclasses.dataclass()
+class Transaction:
+    id_: str
+    amount: int
+    from_: str
+    message: Optional[str]
+    date: datetime.date
+
+    @classmethod
+    def from_api(cls, api_object):
+        return cls(
+            id_=api_object["transaction_id"],
+            amount=int(api_object["amount"]),
+            from_=api_object["account_name"] or api_object["executor"],
+            message=api_object["recipient_message"],
+            date=api_object["date"],
+        )
+
+    def as_dict(self):
+        return {
+            "id": self.id_,
+            "amount": self.amount,
+            "from": self.from_,
+            "message": self.message,
+            "date": self.date.isoformat(),
+        }
+
+
 class TransactionStorage:
     def __init__(self, bank: fiobank.FioBank, db_collection: MongoCollection):
         self.bank = bank
         self.db_collection = db_collection
 
-    async def get_new_transactions(self) -> List[dict]:
+    async def get_new_transactions(self) -> List[Transaction]:
         """
         Fetch new transactions on a bank account.
 
@@ -24,12 +75,12 @@ class TransactionStorage:
 
         In case of any error other, try 3 times, then fail.
         """
-        last_transaction = await self.db_collection.find_one(sort=[("transaction_id", -1)])
+        last_transaction = await self.db_collection.find_one(sort=[("id", -1)])
         retry = 3
         while True:
             try:
                 if last_transaction:
-                    from_id = last_transaction["transaction_id"]
+                    from_id = last_transaction["id"]
                     log.debug(f"Downloading last transactions {from_id=}")
                     transactions = await asyncio.to_thread(self.bank.last, from_id=from_id)
                 else:
@@ -47,9 +98,12 @@ class TransactionStorage:
                 retry -= 1
                 await asyncio.sleep(5)
 
-        transactions = list(transactions)
+        transactions = list(map(Transaction.from_api, transactions))
         if transactions:
             log.info(f"Downloaded {len(transactions)} transactions")
         else:
             log.info("No transactions downloaded")
         return transactions
+
+    async def store_transaction(self, transaction: Transaction):
+        await self.db_collection.insert_one(transaction.as_dict())

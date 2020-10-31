@@ -1,5 +1,4 @@
 import asyncio
-import enum
 import functools
 import logging
 from datetime import timedelta, date
@@ -19,8 +18,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from sentry_sdk.integrations.aiohttp import AioHttpIntegration
 
 from cashier.config import config
-from cashier.fio import transaction_to_json
-from cashier.telegram_bot.models import TransactionStorage
+from cashier.telegram_bot.models import TransactionStorage, Membership, Transaction
 from cashier.util import cron_task
 from cashier.xcontest import Takeoff, get_flights, Pilot, Flight
 
@@ -67,48 +65,35 @@ async def send_md(message):
 @cron_task(config["TRANSACTION_WATCH_CRON"])
 async def watch_transactions(trans_storage: TransactionStorage):
     for trans in await trans_storage.get_new_transactions():
-        asyncio.create_task(process_transaction(trans))
-
-
-class Membership(enum.Enum):
-    unknown = "UNKNOWN"
-    daily = "DAILY"
-    yearly = "YEARLY"
-
-    @classmethod
-    def from_str(cls, input_, allow_unknown=False):
-        try:
-            res = cls(input_)
-            if not allow_unknown and res == cls.unknown:
-                raise ValueError("Unknown membership is not a valid type")
-            return res
-        except ValueError as e:
-            raise ValueError(f"Membership must be either {cls.daily.value} or {cls.yearly.value}") from None
+        asyncio.create_task(process_transaction(trans_storage, trans))
 
 
 # Step 2
 # Backup a transaction to DB and request operators to pair a transaction.
-async def process_transaction(trans):
+async def process_transaction(trans_storage: TransactionStorage, trans: Transaction):
     """Process a single transaction which happened on the bank account."""
     log.info(f"Processing transaction {trans}")
-    await get_db().transactions.insert_one(transaction_to_json(trans))
+    await trans_storage.store_transaction(trans)
 
-    id_ = trans["transaction_id"]
-    message = trans["recipient_message"]
-    from_ = trans["account_name"] or trans["executor"]
-    amount = int(trans["amount"])
-    # FIXME
-    membership = Membership.unknown
-    if amount == 50:
-        membership = Membership.daily
-    if amount >= 250:
-        membership = Membership.yearly
+    try:
+        membership = Membership.from_amount(trans.amount)
+    except ValueError:
+        membership = None
+
     # TODO change smiley?
+    icon = ":white_check_mark:" if membership else ":warning:"
     bot_say = fr"""
     *New transaction:*
-    :question: {escape_md(amount)} Kč \- {escape_md(message)} \({escape_md(from_)}\)\
-    Pairing command: `/{CMD_PAIR} {escape_md(id_)} {membership.value} {escape_md(message)}`
+    {icon} {escape_md(trans.amount)} Kč \- {escape_md(trans.message)} \({escape_md(trans.from_)}\)
     """
+    if membership:
+        bot_say += fr"""\
+        Pairing command: `/{CMD_PAIR} {escape_md(trans.id_)} {membership.value} {escape_md(trans.message)}`
+        """
+    else:
+        bot_say += fr"""\
+        Membership type not detected. Please resolve manually. 
+        """
     asyncio.create_task(send_md(bot_say))
 
 
@@ -300,7 +285,7 @@ async def _smoke_test_mongo():
 async def setup_mongo_indices():
     await asyncio.gather(
         get_db().flights.create_index([("id", pymongo.DESCENDING)], unique=True),
-        get_db().transactions.create_index([("transaction_id", pymongo.DESCENDING)], unique=True),
+        get_db().transactions.create_index([("id", pymongo.DESCENDING)], unique=True),
         get_db().membership.create_index([("transaction_id", pymongo.DESCENDING)], unique=True)
     )
 
