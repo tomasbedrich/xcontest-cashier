@@ -7,7 +7,7 @@ import datetime
 import logging
 from aiohttp import ClientSession, DummyCookieJar, ClientTimeout
 from bs4 import BeautifulSoup, SoupStrainer
-from typing import Union, Iterable, AsyncIterable
+from typing import Union, Iterable, AsyncIterable, Optional
 from urllib.parse import urljoin
 
 log = logging.getLogger(__name__)
@@ -24,8 +24,8 @@ class Takeoff(Enum):
 @dataclasses.dataclass()
 class Pilot:
     username: str
-    name: str = None
-    id: int = None
+    name: Optional[str] = None
+    id: Optional[int] = None
 
     async def load_id(self, session: ClientSession):
         if self.username in _pilot_id_cache:
