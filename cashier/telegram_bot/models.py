@@ -8,50 +8,59 @@ from typing import List, Optional
 import fiobank
 from motor.core import AgnosticCollection as MongoCollection
 
+from cashier.xcontest import Pilot
+
 log = logging.getLogger(__name__)
 
 
-class Membership(enum.Enum):
-    daily = "DAILY"
-    yearly = "YEARLY"
+@dataclasses.dataclass()
+class Membership:
+    transaction_id: str
+    type: "Type"
+    pilot: Pilot
+    date_paired: datetime.date = dataclasses.field(default_factory=datetime.date.today)
+    used_for: Optional[str] = None
 
-    @classmethod
-    def from_str(cls, input_: str):
-        try:
-            return cls(input_.upper())
-        except ValueError:
-            raise ValueError(f"Membership must be either {cls.daily.value} or {cls.yearly.value}") from None
+    class Type(enum.Enum):
+        daily = "DAILY"
+        yearly = "YEARLY"
 
-    @classmethod
-    def from_amount(cls, amount: int):
-        if amount == 50:
-            return Membership.daily
-        if amount >= 100:  # FIXME set to board agreed amount (probably 250)
-            return Membership.yearly
-        raise ValueError(f"Amount of {amount} doesn't correspond to any membership type")
+        @classmethod
+        def from_str(cls, input_: str):
+            try:
+                return cls(input_.upper())
+            except ValueError:
+                raise ValueError(f"Membership must be either {cls.daily.value} or {cls.yearly.value}") from None
+
+        @classmethod
+        def from_amount(cls, amount: int):
+            if amount == 50:
+                return cls.daily
+            if amount >= 100:  # FIXME set to board agreed amount (probably 250)
+                return cls.yearly
+            raise ValueError(f"Amount of {amount} doesn't correspond to any membership type")
+
+    def as_dict(self):
+        return {
+            **dataclasses.asdict(self),
+            "type": self.type.value,
+            "date_paired": self.date_paired.isoformat() if self.date_paired else None,
+        }
 
 
 class MembershipStorage:
     def __init__(self, db_collection: MongoCollection):
         self.db_collection = db_collection
 
-    async def create_membership(self, membership, pilot, transaction_id):
+    async def create_membership(self, membership: Membership):
         """
         Create a membership if doesn't exist yet.
         """
-        # TODO create Membership wrapper type
-        if existing := await self.db_collection.find_one({"transaction_id": transaction_id}):
+        if existing := await self.db_collection.find_one({"transaction_id": membership.transaction_id}):
             raise ValueError(
                 f"This transaction is already paired as {existing['type']} for pilot {existing['pilot']['username']}"
             )
-        await self.db_collection.insert_one(
-            {
-                "transaction_id": transaction_id,
-                "type": membership.value,
-                "pilot": pilot.as_dict(),
-                "date_paired": datetime.date.today().isoformat(),
-            }
-        )
+        await self.db_collection.insert_one(membership.as_dict())
 
 
 @dataclasses.dataclass()

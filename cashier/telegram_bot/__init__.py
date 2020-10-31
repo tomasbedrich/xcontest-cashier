@@ -61,28 +61,33 @@ async def watch_transactions(trans_storage: TransactionStorage):
 # Backup a transaction to DB and request operators to pair a transaction.
 async def process_transaction(trans_storage: TransactionStorage, trans: Transaction):
     """Process a single transaction which happened on the bank account."""
-    log.info(f"Processing transaction {trans}")
+    log.info(f"Processing {trans}")
     await trans_storage.store_transaction(trans)
     try:
-        membership = Membership.from_amount(trans.amount)
+        membership_type = Membership.Type.from_amount(trans.amount)
     except ValueError:
-        membership = None
-    msg = new_transaction_msg(trans, membership)
+        membership_type = None
+    msg = new_transaction_msg(trans, membership_type)
     await bot.send_message(CHAT_ID, msg, parse_mode="HTML")
 
 
-async def _parse_pair_msg(message: types.Message):
+async def _parse_pair_msg(message: types.Message) -> Membership:
+    """
+    Parse a pair command and return a populated membership object.
+
+    Example: `/pair 23461558143 YEARLY tomasbedrich`
+    """
     log.info("Parsing a pair command")
     # TODO make nicer
     parts = message.text.strip().split(" ")
     if len(parts) != 4:
         raise ValueError(f"Expected 3 arguments, got {len(parts) - 1}")
-    trans_id, membership, username = parts[1].strip(), parts[2].strip(), parts[3].strip()
+    trans_id, membership_type, username = parts[1].strip(), parts[2].strip(), parts[3].strip()
 
     if not trans_id.isnumeric():
         raise ValueError("Transaction ID must be numeric")
 
-    membership = Membership.from_str(membership)
+    membership_type = Membership.Type.from_str(membership_type)
 
     pilot = Pilot(username=username)
     # TODO reuse session?
@@ -95,7 +100,7 @@ async def _parse_pair_msg(message: types.Message):
         await pilot.load_id(session)
     log.debug(f"Fetched ID for {pilot}")
 
-    return trans_id, membership, pilot
+    return Membership(trans_id, membership_type, pilot)
 
 
 # Step 3
@@ -103,9 +108,9 @@ async def _parse_pair_msg(message: types.Message):
 @dispatcher.message_handler(commands=[CMD_PAIR])
 @err_to_answer(ValueError)
 async def pair(message: types.Message):
-    transaction_id, membership, pilot = await _parse_pair_msg(message)
-    log.info(f"Pairing {transaction_id=} to {pilot} as {membership}")
-    await membership_storage.create_membership(membership, pilot, transaction_id)
+    membership = await _parse_pair_msg(message)
+    log.info(f"Creating {membership}")
+    await membership_storage.create_membership(membership)
     await message.answer("Okay, paired")
 
 
@@ -131,7 +136,7 @@ async def watch_flights():
 
 
 async def process_flight(flight: Flight):
-    log.info(f"Processing flight {flight}")
+    log.info(f"Processing {flight}")
 
     # TODO can possibly be reduced to write only one time after processing
     existing_flight = await get_db().flights.find_one({"id": flight.id})
@@ -152,8 +157,8 @@ async def process_flight(flight: Flight):
         {
             "pilot.username": pilot_username,
             "$or": [
-                {"type": Membership.daily.value, "used_for": flight_date.isoformat()},
-                {"type": Membership.yearly.value, "used_for": flight_date.year},
+                {"type": Membership.Type.daily.value, "used_for": flight_date.isoformat()},
+                {"type": Membership.Type.yearly.value, "used_for": flight_date.year},
                 {"used_for": None},
             ],
         }
@@ -164,11 +169,11 @@ async def process_flight(flight: Flight):
         asyncio.create_task(bot.send_message(CHAT_ID, msg, parse_mode="HTML"))
     else:
         log.debug(f"Found valid membership for flight {flight.id}: {membership}")
-        membership_type = Membership(membership["type"])
+        membership_type = Membership.Type.from_str(membership["type"])
         # following updates are idempotent, therefore
-        if membership_type == Membership.yearly:
+        if membership_type == Membership.Type.yearly:
             get_db().membership.update_one({"_id": membership["_id"]}, {"$set": {"used_for": flight_date.year}})
-        elif membership_type == Membership.daily:
+        elif membership_type == Membership.Type.daily:
             get_db().membership.update_one({"_id": membership["_id"]}, {"$set": {"used_for": flight_date.isoformat()}})
 
     log.debug(f"Setting flight {flight.id} as processed")

@@ -6,7 +6,7 @@ from cashier.telegram_bot.const import CMD_PAIR, CMD_COMMENT
 from cashier.telegram_bot.models import Transaction, Membership
 
 
-def new_transaction_msg(transaction: Transaction, membership: Optional[Membership]):
+def new_transaction_msg(transaction: Transaction, membership_type: Optional[Membership.Type]):
     """
     Render a new transaction message.
 
@@ -14,14 +14,16 @@ def new_transaction_msg(transaction: Transaction, membership: Optional[Membershi
 
     If the transaction contains a message, it is used as a pilot username for a pairing command.
     """
-    icon = emojize(":white_check_mark:" if membership else ":question:")
+    icon = emojize(":white_check_mark:" if membership_type else ":question:")
     lines = [
         "<strong>New transaction:</strong>",
         f"{icon} {transaction.amount} Kč from {transaction.from_} - {transaction.message or '(no message)'}",
     ]
-    if membership:
+    if membership_type:
         pilot_username = transaction.message if transaction.message else "&lt;PILOT_USERNAME&gt;"
-        lines.append(f"Pairing command: <code>/{CMD_PAIR} {transaction.id} {membership.value} {pilot_username}</code>")
+        lines.append(
+            f"Pairing command: <code>/{CMD_PAIR} {transaction.id} {membership_type.value} {pilot_username}</code>"
+        )
     else:
         lines.append("Membership type not detected. Please resolve manually.")
     return "\n".join(lines)
