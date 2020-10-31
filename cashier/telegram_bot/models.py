@@ -56,7 +56,7 @@ class MembershipStorage:
 
 @dataclasses.dataclass()
 class Transaction:
-    id_: str
+    id: str
     amount: int
     from_: str
     message: Optional[str]
@@ -65,7 +65,7 @@ class Transaction:
     @classmethod
     def from_api(cls, api_object):
         return cls(
-            id_=api_object["transaction_id"],
+            id=api_object["transaction_id"],
             amount=int(api_object["amount"]),
             from_=api_object["account_name"] or api_object["executor"],
             message=api_object["recipient_message"],
@@ -74,7 +74,7 @@ class Transaction:
 
     def as_dict(self):
         return {
-            "id": self.id_,
+            "id": self.id,
             "amount": self.amount,
             "from": self.from_,
             "message": self.message,
