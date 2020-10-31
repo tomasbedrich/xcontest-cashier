@@ -8,7 +8,6 @@ import pymongo
 import sentry_sdk
 from aiogram import Bot, Dispatcher, types
 from aiogram.dispatcher.filters import CommandStart, CommandHelp
-from aiogram.utils.markdown import escape_md
 from aiohttp import ClientSession, DummyCookieJar, ClientTimeout
 from fiobank import FioBank
 from motor.core import AgnosticCollection as MongoCollection
@@ -18,7 +17,7 @@ from sentry_sdk.integrations.aiohttp import AioHttpIntegration
 from cashier.config import config
 from cashier.telegram_bot.const import CMD_PAIR, CMD_COMMENT
 from cashier.telegram_bot.models import TransactionStorage, Membership, Transaction
-from cashier.telegram_bot.views import new_transaction_msg, help_msg, start_msg
+from cashier.telegram_bot.views import new_transaction_msg, help_msg, start_msg, offending_flight_msg
 from cashier.util import cron_task
 from cashier.xcontest import Takeoff, get_flights, Pilot, Flight
 
@@ -44,13 +43,8 @@ def get_db():
         db = mongo_client.default
     return db
 
-# TODO introduce MVC
 
 cron_task = functools.partial(cron_task, run_after_startup=config["RUN_TASKS_AFTER_STARTUP"])
-
-
-async def send_md(message):
-    """Send Markdown message to a common chat."""
 
 
 # Step 1
@@ -93,10 +87,10 @@ async def _parse_pair_msg(message: types.Message):
     pilot = Pilot(username=username)
     # TODO reuse session?
     async with ClientSession(
-            timeout=ClientTimeout(total=10),
-            raise_for_status=True,
-            cookie_jar=DummyCookieJar(),
-            headers={"User-Agent": config["USER_AGENT"]},
+        timeout=ClientTimeout(total=10),
+        raise_for_status=True,
+        cookie_jar=DummyCookieJar(),
+        headers={"User-Agent": config["USER_AGENT"]},
     ) as session:
         await pilot.load_id(session)
     log.debug(f"Fetched ID for {pilot}")
@@ -133,10 +127,10 @@ async def pair(message: types.Message):
 @cron_task(config["FLIGHT_WATCH_CRON"])
 async def watch_flights():
     async with ClientSession(
-            timeout=ClientTimeout(total=10),
-            raise_for_status=True,
-            cookie_jar=DummyCookieJar(),
-            headers={"User-Agent": config["USER_AGENT"]},
+        timeout=ClientTimeout(total=10),
+        raise_for_status=True,
+        cookie_jar=DummyCookieJar(),
+        headers={"User-Agent": config["USER_AGENT"]},
     ) as session:
         takeoff = Takeoff.DOUBRAVA
         day = date.today() - timedelta(days=config["FLIGHT_WATCH_DAYS_BACK"])
@@ -170,23 +164,18 @@ async def process_flight(flight: Flight):
     # - not used daily
     # - used yearly only for current year
     membership = await get_db().membership.find_one({
-        "pilot.username": pilot_username,
-        "$or": [
-            {"type": Membership.daily.value, "used_for": flight_date.isoformat()},
-            {"type": Membership.yearly.value, "used_for": flight_date.year},
-            {"used_for": None},
-        ],
+            "pilot.username": pilot_username,
+            "$or": [
+                {"type": Membership.daily.value, "used_for": flight_date.isoformat()},
+                {"type": Membership.yearly.value, "used_for": flight_date.year},
+                {"used_for": None},
+            ],
     })
     # TODO maybe we somehow want to use date_paired:?
     if not membership:
         log.debug(f"No membership found for flight {flight.id}, reporting")
-        # TODO this is the case we are looking for
-        bot_say = fr"""
-        *Offending flight:*
-        {escape_md(flight.link)}
-        Comment command: `/{CMD_COMMENT} {escape_md(flight.id)}`
-        """
-        asyncio.create_task(send_md(bot_say))
+        msg = offending_flight_msg(flight)
+        asyncio.create_task(bot.send_message(CHAT_ID, msg, parse_mode="HTML"))
     else:
         log.debug(f"Found valid membership for flight {flight.id}: {membership}")
         membership_type = Membership(membership["type"])
@@ -259,7 +248,7 @@ async def setup_mongo_indices():
     await asyncio.gather(
         get_db().flights.create_index([("id", pymongo.DESCENDING)], unique=True),
         get_db().transactions.create_index([("id", pymongo.DESCENDING)], unique=True),
-        get_db().membership.create_index([("transaction_id", pymongo.DESCENDING)], unique=True)
+        get_db().membership.create_index([("transaction_id", pymongo.DESCENDING)], unique=True),
     )
 
 

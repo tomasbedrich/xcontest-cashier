@@ -27,6 +27,15 @@ def new_transaction_msg(transaction: Transaction, membership: Optional[Membershi
     return "\n".join(lines)
 
 
+def offending_flight_msg(flight):
+    lines = [
+        "<strong>Offending flight:</strong>",
+        flight.link,
+        f"Comment command: <code>/{CMD_COMMENT} {flight.id}</code>",
+    ]
+    return "\n".join(lines)
+
+
 def start_msg():
     return emojize("Keep calm, I am working 24/7. :sunglasses:")
 
