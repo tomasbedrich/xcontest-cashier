@@ -21,6 +21,7 @@ from typing import Optional
 
 from cashier.config import config
 from cashier.fio import transaction_to_json
+from cashier.telegram_bot.models import TransactionStorage
 from cashier.xcontest import Takeoff, get_flights, Pilot, Flight
 
 # telemetry
@@ -61,10 +62,8 @@ async def send_md(message):
 
 # Step 1
 # Get a transaction from the bank account
-async def watch_transactions():
+async def watch_transactions(trans_storage: TransactionStorage):
     log.info("Starting transaction watch task")
-
-    bank = FioBank(config["FIO_API_TOKEN"])
 
     must_wait = False
     while True:
@@ -73,38 +72,8 @@ async def watch_transactions():
         must_wait = True
         log.info(f"Executing transaction watch task")
 
-        last_transaction = await get_db().transactions.find_one(sort=[("transaction_id", -1)])
-        retry = 3
-        while True:
-            try:
-                if last_transaction:
-                    from_id = last_transaction["transaction_id"]
-                    log.debug(f"Downloading last transactions {from_id=}")
-                    transactions = await asyncio.to_thread(bank.last, from_id=from_id)
-                else:
-                    log.debug(f"Downloading all transactions from 2020-01-01")
-                    transactions = await asyncio.to_thread(bank.last, from_date="2020-01-01")
-                break
-            except fiobank.ThrottlingError:
-                log.warning("Throttled bank API request, retrying in 30 seconds")
-                await asyncio.sleep(30)  # hardcoded according to FIO bank docs
-            except:  # NOQA
-                # for whatever else reason it fails, retry a few times
-                if retry == 0:
-                    raise
-                log.exception(f"Downloading transactions failed, retrying {retry} more times")
-                retry -= 1
-                await asyncio.sleep(5)
-
-        transactions = list(transactions)
-
-        for trans in transactions:
+        for trans in await trans_storage.get_new_transactions():
             asyncio.create_task(process_transaction(trans))
-
-        if transactions:
-            log.info(f"Downloaded {len(transactions)} transactions")
-        else:
-            log.info("No transactions downloaded")
 
 
 class Membership(enum.Enum):
@@ -358,8 +327,10 @@ async def main():
     await _smoke_test_mongo()
     await setup_mongo_indices()
 
+    bank = FioBank(config["FIO_API_TOKEN"])
+    trans_storage = TransactionStorage(bank, db.transactions)
+
     asyncio.create_task(touch_liveness_probe(), name="touch_liveness_probe")
-    asyncio.create_task(watch_transactions(), name="watch_transactions")
+    asyncio.create_task(watch_transactions(trans_storage), name="watch_transactions")
     asyncio.create_task(watch_flights(), name="watch_flights")
-    asyncio.create_task(process_flights(), name="process_flights")
     await handle_telegram()
