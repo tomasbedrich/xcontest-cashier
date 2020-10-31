@@ -127,7 +127,7 @@ class Membership(enum.Enum):
 async def process_transaction(trans):
     """Process a single transaction which happened on the bank account."""
     log.info(f"Processing transaction {trans}")
-    get_db().transactions.insert_one(transaction_to_json(trans))
+    await get_db().transactions.insert_one(transaction_to_json(trans))
 
     id_ = trans["transaction_id"]
     message = trans["recipient_message"]
@@ -188,7 +188,7 @@ async def pair(message: types.Message):
     # TODO prevent pairing the same entry multiple times
     # probably create some compound unique key
 
-    get_db().membership.insert_one({
+    await get_db().membership.insert_one({
         "transaction_id": transaction_id,
         "type": membership.value,
         "pilot": pilot.as_dict(),
@@ -236,8 +236,13 @@ async def process_flight(flight: Flight):
     log.info(f"Processing flight {flight}")
 
     # TODO can possibly be reduced to write only one time after processing
-    log.debug(f"Storing flight into DB")
-    get_db().flights.update_one({"id": flight.id}, {"$set": flight.as_dict()}, upsert=True)
+    existing_flight = await get_db().flights.find_one({"id": flight.id})
+    if not existing_flight:
+        log.debug(f"Storing flight into DB")
+        await get_db().flights.insert_one(flight.as_dict())
+    elif existing_flight["processed"]:
+        log.debug("Skipping as flight is already processed")
+        return
 
     pilot_username = flight.pilot.username
     flight_date = flight.datetime.date()
@@ -255,6 +260,7 @@ async def process_flight(flight: Flight):
     })
     # TODO maybe we somehow want to use date_paired:?
     if not membership:
+        log.debug("No membership found, reporting")
         # TODO this is the case we are looking for
         bot_say = fr"""
         *Offending flight:*
@@ -263,7 +269,9 @@ async def process_flight(flight: Flight):
         """
         asyncio.create_task(send_md(bot_say))
     else:
+        log.debug(f"Found valid membership: {membership}")
         membership_type = Membership(membership["type"])
+        # following updates are idempotent, therefore
         if membership_type == Membership.yearly:
             get_db().membership.update_one({"_id": membership["_id"]}, {"$set": {"used_for": flight_date.year}})
         elif membership_type == Membership.daily:
