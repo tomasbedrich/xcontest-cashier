@@ -3,6 +3,7 @@ import enum
 import asyncio
 import fiobank
 import logging
+import pymongo
 import sentry_sdk
 from aiocron import crontab
 from aiogram import Bot, Dispatcher, types
@@ -185,15 +186,17 @@ async def pair(message: types.Message):
         return await message.answer(f"{str(e)}. Please see /help")
     log.info(f"Pairing {transaction_id=} {membership} to {pilot}")
 
-    # TODO prevent pairing the same entry multiple times
-    # probably create some compound unique key
+    if existing := await get_db().membership.find_one({"transaction_id": transaction_id}):
+        await message.answer(
+            f"This transaction is already paired as {existing['type']} for pilot {existing['pilot']['username']}."
+        )
+        return
 
     await get_db().membership.insert_one({
         "transaction_id": transaction_id,
         "type": membership.value,
         "pilot": pilot.as_dict(),
         "date_paired": date.today().isoformat(),
-        # TODO add date_paid (date_paired can be different)
     })
 
     await message.answer("Okay, paired")
@@ -201,8 +204,6 @@ async def pair(message: types.Message):
 
 async def watch_flights():
     log.info("Starting flight watch task")
-
-    await get_db().flights.create_index("id", unique=True)
 
     async with ClientSession(
         timeout=ClientTimeout(total=10),
@@ -342,11 +343,20 @@ async def _smoke_test_mongo():
     await get_db().transactions.find_one()
 
 
+async def setup_mongo_indices():
+    await asyncio.gather(
+        get_db().flights.create_index([("id", pymongo.DESCENDING)], unique=True),
+        get_db().transactions.create_index([("transaction_id", pymongo.DESCENDING)], unique=True),
+        get_db().membership.create_index([("transaction_id", pymongo.DESCENDING)], unique=True)
+    )
+
+
 async def main():
     loop = asyncio.get_event_loop()
     loop.set_exception_handler(handle_exception)
 
     await _smoke_test_mongo()
+    await setup_mongo_indices()
 
     asyncio.create_task(touch_liveness_probe(), name="touch_liveness_probe")
     asyncio.create_task(watch_transactions(), name="watch_transactions")
