@@ -32,3 +32,21 @@ def cron_task(cron_pattern, run_after_startup=False):
         return wrapper
 
     return make_cron_task
+
+
+def err_to_answer(err_types=(ValueError,)):
+    """
+    Catch unhandled errors of given type and convert them to Telegram answers.
+    """
+
+    def make_wrapper(fn):
+        @functools.wraps(fn)
+        async def wrapper(message, *args, **kwargs):
+            try:
+                return await fn(message, *args, **kwargs)
+            except err_types as e:
+                return await message.answer(f"{str(e)}. Please see /help")
+
+        return wrapper
+
+    return make_wrapper

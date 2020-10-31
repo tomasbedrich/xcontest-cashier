@@ -28,7 +28,30 @@ class Membership(enum.Enum):
             return Membership.daily
         if amount >= 100:  # FIXME set to board agreed amount (probably 250)
             return Membership.yearly
-        raise ValueError(f"Amount of {amount} doesn't correspond to any membership level.")
+        raise ValueError(f"Amount of {amount} doesn't correspond to any membership type")
+
+
+class MembershipStorage:
+    def __init__(self, db_collection: MongoCollection):
+        self.db_collection = db_collection
+
+    async def create_membership(self, membership, pilot, transaction_id):
+        """
+        Create a membership if doesn't exist yet.
+        """
+        # TODO create Membership wrapper type
+        if existing := await self.db_collection.find_one({"transaction_id": transaction_id}):
+            raise ValueError(
+                f"This transaction is already paired as {existing['type']} for pilot {existing['pilot']['username']}"
+            )
+        await self.db_collection.insert_one(
+            {
+                "transaction_id": transaction_id,
+                "type": membership.value,
+                "pilot": pilot.as_dict(),
+                "date_paired": datetime.date.today().isoformat(),
+            }
+        )
 
 
 @dataclasses.dataclass()

@@ -16,9 +16,9 @@ from sentry_sdk.integrations.aiohttp import AioHttpIntegration
 
 from cashier.config import config
 from cashier.telegram_bot.const import CMD_PAIR, CMD_COMMENT
-from cashier.telegram_bot.models import TransactionStorage, Membership, Transaction
+from cashier.telegram_bot.models import TransactionStorage, Membership, Transaction, MembershipStorage
 from cashier.telegram_bot.views import new_transaction_msg, help_msg, start_msg, offending_flight_msg
-from cashier.util import cron_task
+from cashier.util import cron_task, err_to_answer
 from cashier.xcontest import Takeoff, get_flights, Pilot, Flight
 
 # telemetry
@@ -29,6 +29,8 @@ sentry_sdk.init(**config.get_namespace("SENTRY_"), integrations=[AioHttpIntegrat
 CHAT_ID = config["TELEGRAM_CHAT_ID"]  # TODO setup a protection for bot to reply only to this CHAT_ID
 bot = Bot(token=config["TELEGRAM_BOT_TOKEN"])
 dispatcher = Dispatcher(bot)
+
+membership_storage: Optional[MembershipStorage] = None
 
 # Mongo
 mongo_client: Optional[AsyncIOMotorClient] = None
@@ -61,12 +63,10 @@ async def process_transaction(trans_storage: TransactionStorage, trans: Transact
     """Process a single transaction which happened on the bank account."""
     log.info(f"Processing transaction {trans}")
     await trans_storage.store_transaction(trans)
-
     try:
         membership = Membership.from_amount(trans.amount)
     except ValueError:
         membership = None
-
     msg = new_transaction_msg(trans, membership)
     await bot.send_message(CHAT_ID, msg, parse_mode="HTML")
 
@@ -101,26 +101,11 @@ async def _parse_pair_msg(message: types.Message):
 # Step 3
 # Pair a transaction (= create a membership)
 @dispatcher.message_handler(commands=[CMD_PAIR])
+@err_to_answer(ValueError)
 async def pair(message: types.Message):
-    try:
-        transaction_id, membership, pilot = await _parse_pair_msg(message)
-    except ValueError as e:
-        return await message.answer(f"{str(e)}. Please see /help")
-    log.info(f"Pairing {transaction_id=} {membership} to {pilot}")
-
-    if existing := await get_db().membership.find_one({"transaction_id": transaction_id}):
-        await message.answer(
-            f"This transaction is already paired as {existing['type']} for pilot {existing['pilot']['username']}."
-        )
-        return
-
-    await get_db().membership.insert_one({
-        "transaction_id": transaction_id,
-        "type": membership.value,
-        "pilot": pilot.as_dict(),
-        "date_paired": date.today().isoformat(),
-    })
-
+    transaction_id, membership, pilot = await _parse_pair_msg(message)
+    log.info(f"Pairing {transaction_id=} to {pilot} as {membership}")
+    await membership_storage.create_membership(membership, pilot, transaction_id)
     await message.answer("Okay, paired")
 
 
@@ -163,15 +148,16 @@ async def process_flight(flight: Flight):
     # - yearly first (then daily)
     # - not used daily
     # - used yearly only for current year
-    membership = await get_db().membership.find_one({
+    membership = await get_db().membership.find_one(
+        {
             "pilot.username": pilot_username,
             "$or": [
                 {"type": Membership.daily.value, "used_for": flight_date.isoformat()},
                 {"type": Membership.yearly.value, "used_for": flight_date.year},
                 {"used_for": None},
             ],
-    })
-    # TODO maybe we somehow want to use date_paired:?
+        }
+    )
     if not membership:
         log.debug(f"No membership found for flight {flight.id}, reporting")
         msg = offending_flight_msg(flight)
@@ -253,6 +239,8 @@ async def setup_mongo_indices():
 
 
 async def main():
+    global membership_storage
+
     loop = asyncio.get_event_loop()
     loop.set_exception_handler(handle_exception)
 
@@ -260,7 +248,8 @@ async def main():
     await setup_mongo_indices()
 
     bank = FioBank(config["FIO_API_TOKEN"])
-    trans_storage = TransactionStorage(bank, db.transactions)
+    trans_storage = TransactionStorage(bank, get_db().transactions)
+    membership_storage = MembershipStorage(get_db().membership)
 
     asyncio.create_task(touch_liveness_probe(), name="touch_liveness_probe")
     asyncio.create_task(watch_transactions(trans_storage), name="watch_transactions")
