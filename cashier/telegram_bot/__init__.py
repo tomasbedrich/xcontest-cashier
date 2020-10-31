@@ -363,12 +363,3 @@ async def main():
     asyncio.create_task(watch_flights(), name="watch_flights")
     asyncio.create_task(process_flights(), name="process_flights")
     await handle_telegram()
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
-    log.info("Starting")
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        log.info("Keyboard interrupt - terminating")
