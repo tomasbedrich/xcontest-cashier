@@ -7,7 +7,7 @@ from typing import Optional
 import pymongo
 import sentry_sdk
 from aiogram import Bot, Dispatcher, types
-from aiogram.dispatcher.filters import CommandStart, CommandHelp
+from aiogram.dispatcher.filters import CommandStart, CommandHelp, IDFilter
 from aiohttp import ClientSession, DummyCookieJar, ClientTimeout
 from fiobank import FioBank
 from motor.core import AgnosticCollection as MongoCollection
@@ -26,7 +26,7 @@ log = logging.getLogger(__name__)
 sentry_sdk.init(**config.get_namespace("SENTRY_"), integrations=[AioHttpIntegration()])
 
 # Telegram
-CHAT_ID = config["TELEGRAM_CHAT_ID"]  # TODO setup a protection for bot to reply only to this CHAT_ID
+CHAT_ID = config["TELEGRAM_CHAT_ID"]
 bot = Bot(token=config["TELEGRAM_BOT_TOKEN"])
 dispatcher = Dispatcher(bot)
 
@@ -48,6 +48,7 @@ def get_db():
 
 
 cron_task = functools.partial(cron_task, run_after_startup=config["RUN_TASKS_AFTER_STARTUP"])
+guarded_message_handler = functools.partial(dispatcher.message_handler, IDFilter(chat_id=CHAT_ID))
 
 
 # Step 1
@@ -99,7 +100,7 @@ async def _parse_pair_msg(message: types.Message) -> Membership:
 
 # Step 3
 # Pair a transaction (= create a membership)
-@dispatcher.message_handler(commands=[CMD_PAIR])
+@guarded_message_handler(commands=[CMD_PAIR])
 @err_to_answer(ValueError)
 async def pair(message: types.Message):
     membership = await _parse_pair_msg(message)
@@ -136,17 +137,17 @@ async def process_flight(flight_storage: FlightStorage, membership_storage: Memb
     await flight_storage.store_flight(flight)
 
 
-@dispatcher.message_handler(CommandStart())
+@guarded_message_handler(CommandStart())
 async def start(message: types.Message):
     await message.answer(start_msg(), parse_mode="HTML")
 
 
-@dispatcher.message_handler(CommandHelp())
+@guarded_message_handler(CommandHelp())
 async def help_(message: types.Message):
     await message.answer(help_msg(), parse_mode="HTML")
 
 
-@dispatcher.message_handler(commands=[CMD_COMMENT])
+@guarded_message_handler(commands=[CMD_COMMENT])
 async def comment(message: types.Message):
     # TODO
     await message.answer("Not implemented yet")
