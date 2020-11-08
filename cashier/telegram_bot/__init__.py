@@ -60,7 +60,17 @@ def get_db():
 
 
 cron_task = functools.partial(cron_task, run_after_startup=config["RUN_TASKS_AFTER_STARTUP"])
-guarded_message_handler = functools.partial(dispatcher.message_handler, IDFilter(chat_id=CHAT_ID))
+
+
+def guarded_message_handler(*custom_filters, **kwargs):
+    filters = (IDFilter(chat_id=CHAT_ID),) + kwargs.get("custom_filters", custom_filters)
+
+    def decorator(callback):
+        dispatcher.register_message_handler(callback, *filters, **kwargs)
+        dispatcher.register_edited_message_handler(callback, *filters, **kwargs)
+        return callback
+
+    return decorator
 
 
 # Step 1
