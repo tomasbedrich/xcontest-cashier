@@ -1,6 +1,7 @@
 import asyncio
 import functools
 import logging
+import re
 from datetime import timedelta, date
 from typing import Optional
 
@@ -29,6 +30,17 @@ sentry_sdk.init(**config.get_namespace("SENTRY_"), integrations=[AioHttpIntegrat
 CHAT_ID = config["TELEGRAM_CHAT_ID"]
 bot = Bot(token=config["TELEGRAM_BOT_TOKEN"])
 dispatcher = Dispatcher(bot)
+CMD_PAIR_REGEX = re.compile(
+    "".join(
+        (
+            r"^",
+            r"(?P<transaction_id>\d+)\s+",
+            "".join((r"(?P<membership_type>", "|".join([t.value for t in Membership.Type]), r")\s+")),
+            r"(?P<pilot_username>\S+)",
+            r"$",
+        )
+    )
+)
 
 session: Optional[ClientSession] = None
 membership_storage: Optional[MembershipStorage] = None
@@ -73,29 +85,25 @@ async def process_transaction(trans_storage: TransactionStorage, trans: Transact
     await bot.send_message(CHAT_ID, msg, parse_mode="HTML")
 
 
-async def _parse_pair_msg(message: types.Message) -> Membership:
+async def _parse_pair_args(args: str) -> Membership:
     """
-    Parse a pair command and return a populated membership object.
+    Parse a pair command arguments and return a populated membership object.
 
-    Example: `/pair 23461558143 YEARLY tomasbedrich`
+    Example args: `23461558143 YEARLY tomasbedrich`
     """
     log.info("Parsing a pair command")
-    # TODO make nicer
-    parts = message.text.strip().split(" ")
-    if len(parts) != 4:
-        raise ValueError(f"Expected 3 arguments, got {len(parts) - 1}")
-    trans_id, membership_type, username = parts[1].strip(), parts[2].strip(), parts[3].strip()
 
-    if not trans_id.isnumeric():
-        raise ValueError("Transaction ID must be numeric")
+    match = CMD_PAIR_REGEX.search(args)
+    if not match:
+        raise ValueError("Pairing command doesn't match expected format")
+    command_data = match.groupdict()
 
-    membership_type = Membership.Type.from_str(membership_type)
-
-    pilot = Pilot(username=username)
+    transaction_id = command_data["transaction_id"]
+    membership_type = Membership.Type.from_str(command_data["membership_type"])
+    pilot = Pilot(username=command_data["pilot_username"])
     await pilot.load_id(session)
-    log.debug(f"Fetched ID for {pilot}")
 
-    return Membership(trans_id, membership_type, pilot)
+    return Membership(transaction_id, membership_type, pilot)
 
 
 # Step 3
@@ -103,7 +111,7 @@ async def _parse_pair_msg(message: types.Message) -> Membership:
 @guarded_message_handler(commands=[CMD_PAIR])
 @err_to_answer(ValueError)
 async def pair(message: types.Message):
-    membership = await _parse_pair_msg(message)
+    membership = await _parse_pair_args(message.get_args())
     log.info(f"Creating {membership}")
     await membership_storage.create_membership(membership)
     await message.answer("Okay, paired")

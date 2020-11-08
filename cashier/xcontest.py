@@ -39,6 +39,7 @@ class Pilot:
 
         self.id = int(match[1])
         _pilot_id_cache[self.username] = self.id
+        log.debug(f"Fetched ID for {self}")
 
     @property
     def url(self):
