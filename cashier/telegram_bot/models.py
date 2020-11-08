@@ -73,30 +73,37 @@ class MembershipStorage:
             )
         await self.db_collection.insert_one(membership.as_dict())
 
-    async def get_by_flight(self, flight: Flight) -> Membership:
+    async def get_by_flight(self, flight: Flight) -> Optional[Membership]:
         """
         Return most suitable membership for given flight (its pilot).
 
         "Most suitable" means (in this order):
-        1. Yearly membership bound to current year.
-        2. Daily membership bound to current day.
-        3. Any other unbound membership.
+
+        1. Yearly membership bound to the year when the flight happened.
+        2. Daily membership bound to the day when the flight happened.
+        3. Unbound yearly membership.
+        4. Unbound daily membership.
+        5. `None` if none of above is found.
         """
-        # TODO use more filters:
-        # - yearly first (then daily)
-        # - not used daily
-        # - used yearly only for current year
-        res = await self.db_collection.find_one(
-            {
-                "pilot.username": flight.pilot.username,
-                "$or": [
-                    {"type": Membership.Type.daily.value, "used_for": flight.datetime.date().isoformat()},
-                    {"type": Membership.Type.yearly.value, "used_for": flight.datetime.year},
-                    {"used_for": None},
-                ],
-            }
-        )
-        return Membership.from_dict(res) if res else None
+        # some aliases to make Black happy
+        search = self.db_collection.find_one
+        base_filter = {"pilot.username": flight.pilot.username}
+        flight_year = flight.datetime.year
+        flight_date = flight.datetime.date().isoformat()
+
+        # This can be probably solved by some fancy Mongo multi-column-index sorting feature...
+        # But I just need to get the shit done.
+        candidates = [
+            search({**base_filter, "type": Membership.Type.yearly.value, "used_for": flight_year}),  # 1.
+            search({**base_filter, "type": Membership.Type.daily.value, "used_for": flight_date}),  # 2.
+            search({**base_filter, "type": Membership.Type.yearly.value, "used_for": None}),  # 3.
+            search({**base_filter, "type": Membership.Type.daily.value, "used_for": None}),  # 4.
+        ]
+        for candidate in candidates:
+            res = await candidate
+            if res:
+                return Membership.from_dict(res)
+        return None  # 5.
 
     async def set_used_for(self, membership: Membership, flight: Flight):
         """
