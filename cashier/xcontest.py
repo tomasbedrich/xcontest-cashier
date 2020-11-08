@@ -1,14 +1,14 @@
-import dataclasses
-import re
-from enum import Enum
-
 import asyncio
+import dataclasses
 import datetime
 import logging
-from aiohttp import ClientSession, DummyCookieJar, ClientTimeout
-from bs4 import BeautifulSoup, SoupStrainer
+import re
+from enum import Enum
 from typing import Union, Iterable, AsyncIterable, Optional
 from urllib.parse import urljoin
+
+from aiohttp import ClientSession, DummyCookieJar, ClientTimeout
+from bs4 import BeautifulSoup, SoupStrainer
 
 log = logging.getLogger(__name__)
 
@@ -28,6 +28,13 @@ class Pilot:
     id: Optional[int] = None
 
     async def load_id(self, session: ClientSession):
+        """
+        Load ID for pilot by username.
+
+        Raises:
+            ClientError: When there is an error during loading HTTP request.
+            ValueError: When pilot ID cannot be found.
+        """
         if self.username in _pilot_id_cache:
             self.id = _pilot_id_cache[self.username]
             return
@@ -58,11 +65,7 @@ class Pilot:
 
     @classmethod
     def from_dict(cls, obj: dict):
-        return cls(
-            username=obj["username"],
-            name=obj.get("name"),
-            id=obj.get("id"),
-        )
+        return cls(username=obj["username"], name=obj.get("name"), id=obj.get("id"),)
 
 
 @dataclasses.dataclass(frozen=True)

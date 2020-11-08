@@ -9,7 +9,7 @@ import pymongo
 import sentry_sdk
 from aiogram import Bot, Dispatcher, types
 from aiogram.dispatcher.filters import CommandStart, CommandHelp, IDFilter
-from aiohttp import ClientSession, DummyCookieJar, ClientTimeout
+from aiohttp import ClientSession, DummyCookieJar, ClientTimeout, ClientError
 from fiobank import FioBank
 from motor.core import AgnosticCollection as MongoCollection
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -109,7 +109,7 @@ async def _parse_pair_args(args: str) -> Membership:
 # Step 3
 # Pair a transaction (= create a membership)
 @guarded_message_handler(commands=[CMD_PAIR])
-@err_to_answer(ValueError)
+@err_to_answer(ValueError, ClientError)
 async def pair(message: types.Message):
     membership = await _parse_pair_args(message.get_args())
     log.info(f"Creating {membership}")
@@ -121,7 +121,7 @@ async def pair(message: types.Message):
 async def watch_flights(flight_storage, membership_storage):
     takeoff = Takeoff.DOUBRAVA  # TODO watch all Takeoffs
     day = date.today() - timedelta(days=config["FLIGHT_WATCH_DAYS_BACK"])
-    async for flight in flight_storage.get_new_flights(takeoff, day):
+    async for flight in flight_storage.get_flights(takeoff, day):
         asyncio.create_task(process_flight(flight_storage, membership_storage, flight))
 
 

@@ -34,10 +34,12 @@ def cron_task(cron_pattern, run_after_startup=False):
     return make_cron_task
 
 
-def err_to_answer(err_types=(ValueError,)):
+def err_to_answer(*err_types):
     """
     Catch unhandled errors of given type and convert them to Telegram answers.
     """
+    if not err_types:
+        err_types += (ValueError,)
 
     def make_wrapper(fn):
         @functools.wraps(fn)

@@ -154,7 +154,7 @@ class TransactionStorage:
 
         It throttled by a Fio Bank API, wait automatically 30 seconds (according their docs).
 
-        In case of any error other, try 3 times, then fail.
+        In case of any other error, try 3 times, then fail.
         """
         last_transaction = await self.db_collection.find_one(sort=[("id", -1)])
         retry = 3
@@ -195,12 +195,28 @@ class FlightStorage:
         self.session = session
         self.db_collection = db_collection
 
-    async def get_new_flights(self, takeoff, day) -> AsyncIterable[Flight]:
-        num = 0
-        async for flight in get_flights(self.session, takeoff, day):
-            yield flight
-            num += 1
-        log.info(f"Downloaded {num} flights")
+    async def get_flights(self, takeoff, day) -> AsyncIterable[Flight]:
+        """
+        Get all flights for given takeoff and date.
+
+        In case of any error, try 3 times, then fail.
+        """
+        retry = 3
+        while True:
+            try:
+                num = 0
+                async for flight in get_flights(self.session, takeoff, day):
+                    yield flight
+                    num += 1
+                log.info(f"Downloaded {num} flights")
+                break
+            except:  # NOQA
+                # for whatever else reason it fails, retry a few times
+                if retry == 0:
+                    raise
+                log.exception(f"Downloading flights failed, retrying {retry} more times")
+                retry -= 1
+                await asyncio.sleep(10)
 
     async def store_flight(self, flight: Flight):
         """
