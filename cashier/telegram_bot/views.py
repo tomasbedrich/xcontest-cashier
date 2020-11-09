@@ -3,7 +3,8 @@ from typing import Optional
 from aiogram.utils.emoji import emojize
 
 from cashier.telegram_bot.const import CMD_PAIR, CMD_COMMENT
-from cashier.telegram_bot.models import Transaction, Membership
+from cashier.telegram_bot.models.membership import Membership
+from cashier.telegram_bot.models.transaction import Transaction
 
 
 def new_transaction_msg(transaction: Transaction, membership_type: Optional[Membership.Type]):
