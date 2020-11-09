@@ -16,11 +16,11 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from sentry_sdk.integrations.aiohttp import AioHttpIntegration
 
 from cashier.config import config
-from cashier.telegram_bot.const import CMD_PAIR, CMD_COMMENT
-from cashier.telegram_bot.models.flight import FlightStorage
-from cashier.telegram_bot.models.membership import Membership, MembershipStorage
-from cashier.telegram_bot.models.transaction import Transaction, TransactionStorage
-from cashier.telegram_bot.views import new_transaction_msg, help_msg, start_msg, offending_flight_msg
+from cashier.const import CMD_PAIR, CMD_COMMENT
+from cashier.models.flight import FlightStorage
+from cashier.models.membership import Membership, MembershipStorage
+from cashier.models.transaction import Transaction, TransactionStorage
+from cashier.views import new_transaction_msg, help_msg, start_msg, offending_flight_msg
 from cashier.util import cron_task, err_to_answer
 from cashier.xcontest import Takeoff, Pilot, Flight
 
@@ -247,3 +247,12 @@ async def main():
     asyncio.create_task(watch_transactions(trans_storage), name="watch_transactions")
     asyncio.create_task(watch_flights(flight_storage, membership_storage), name="watch_flights")
     await handle_telegram()
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+    log.info("Starting")
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        log.info("Keyboard interrupt - terminating")
