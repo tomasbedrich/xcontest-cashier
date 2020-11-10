@@ -64,6 +64,7 @@ class MembershipStorage:
         """
         Create a membership if doesn't exist yet.
         """
+        log.info(f"Creating {membership}")
         if existing := await self.db_collection.find_one({"transaction_id": membership.transaction_id}):
             raise ValueError(
                 f"This transaction is already paired as {existing['type']} for pilot {existing['pilot']['username']}"

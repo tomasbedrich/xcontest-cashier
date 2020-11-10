@@ -20,8 +20,8 @@ from cashier.const import CMD_PAIR, CMD_COMMENT
 from cashier.models.flight import FlightStorage
 from cashier.models.membership import Membership, MembershipStorage
 from cashier.models.transaction import Transaction, TransactionStorage
+from cashier.util import cron_task
 from cashier.views import new_transaction_msg, help_msg, start_msg, offending_flight_msg
-from cashier.util import cron_task, err_to_answer
 from cashier.xcontest import Takeoff, Pilot, Flight
 
 # telemetry
@@ -43,9 +43,6 @@ CMD_PAIR_REGEX = re.compile(
         )
     )
 )
-
-session: Optional[ClientSession] = None
-membership_storage: Optional[MembershipStorage] = None
 
 # Mongo
 mongo_client: Optional[AsyncIOMotorClient] = None
@@ -76,7 +73,7 @@ def guarded_message_handler(*custom_filters, **kwargs):
 
 
 # Step 1
-# Get a transaction from the bank account
+# Get a transaction from the bank account.
 @cron_task(config["TRANSACTION_WATCH_CRON"])
 async def watch_transactions(trans_storage: TransactionStorage):
     for trans in await trans_storage.get_new_transactions():
@@ -97,7 +94,7 @@ async def process_transaction(trans_storage: TransactionStorage, trans: Transact
     await bot.send_message(CHAT_ID, msg, parse_mode="HTML")
 
 
-async def _parse_pair_args(args: str) -> Membership:
+async def _parse_pair_args(session: ClientSession, args: str) -> Membership:
     """
     Parse a pair command arguments and return a populated membership object.
 
@@ -119,13 +116,15 @@ async def _parse_pair_args(args: str) -> Membership:
 
 
 # Step 3
-# Pair a transaction (= create a membership)
-@guarded_message_handler(commands=[CMD_PAIR])
-@err_to_answer(ValueError, ClientError)
-async def pair(message: types.Message):
-    membership = await _parse_pair_args(message.get_args())
-    log.info(f"Creating {membership}")
-    await membership_storage.create_membership(membership)
+# Pair a transaction (= create a membership).
+# We would normally decorate this with @guarded_message_handler, but we need to bind `session` and `membership_storage`,
+# therefore we register this in `handle_telegram()`
+async def pair(session, membership_storage, message: types.Message):
+    try:
+        membership = await _parse_pair_args(session, message.get_args())
+        await membership_storage.create_membership(membership)
+    except (ValueError, ClientError) as e:
+        return await message.answer(f"{str(e)}. Please see /help")
     await message.answer("Okay, paired")
 
 
@@ -180,7 +179,9 @@ async def touch_liveness_probe():
         await asyncio.sleep(config["LIVENESS_SLEEP"])
 
 
-async def handle_telegram():
+async def handle_telegram(session: ClientSession, membership_storage: MembershipStorage):
+    guarded_message_handler(commands=[CMD_PAIR])(functools.partial(pair, session, membership_storage))
+
     # startup message + cleanup copied from aiogram.executor
     user = await dispatcher.bot.me
     log.info(f"Starting Telegram bot: {user.full_name} [@{user.username}]")
@@ -221,8 +222,6 @@ async def setup_mongo_indices():
 
 
 async def main():
-    global membership_storage, flight_storage, session
-
     loop = asyncio.get_event_loop()
     loop.set_exception_handler(handle_exception)
 
@@ -246,7 +245,7 @@ async def main():
     asyncio.create_task(touch_liveness_probe(), name="touch_liveness_probe")
     asyncio.create_task(watch_transactions(trans_storage), name="watch_transactions")
     asyncio.create_task(watch_flights(flight_storage, membership_storage), name="watch_flights")
-    await handle_telegram()
+    await handle_telegram(session, membership_storage)
 
 
 if __name__ == "__main__":
