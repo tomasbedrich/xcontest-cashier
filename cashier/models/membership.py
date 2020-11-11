@@ -4,8 +4,10 @@ import enum
 import logging
 from typing import Optional
 
+import pymongo
 from motor.core import AgnosticCollection as MongoCollection
 
+from cashier.util import NoPublicConstructor
 from cashier.xcontest import Pilot, Flight
 
 log = logging.getLogger(__name__)
@@ -56,9 +58,14 @@ class Membership:
         )
 
 
-class MembershipStorage:
-    def __init__(self, db_collection: MongoCollection):
+class MembershipStorage(metaclass=NoPublicConstructor):
+    def __init__(self, db_collection):
         self.db_collection = db_collection
+
+    @classmethod
+    async def new(cls, db_collection: MongoCollection):
+        await db_collection.create_index([("transaction_id", pymongo.DESCENDING)], unique=True)
+        return cls._create(db_collection)
 
     async def create_membership(self, membership: Membership):
         """

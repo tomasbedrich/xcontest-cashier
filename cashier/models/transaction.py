@@ -5,7 +5,10 @@ import logging
 from typing import Optional, List
 
 import fiobank
+import pymongo
 from motor.core import AgnosticCollection as MongoCollection
+
+from cashier.util import NoPublicConstructor
 
 log = logging.getLogger(__name__)
 
@@ -38,10 +41,15 @@ class Transaction:
         }
 
 
-class TransactionStorage:
-    def __init__(self, bank: fiobank.FioBank, db_collection: MongoCollection):
+class TransactionStorage(metaclass=NoPublicConstructor):
+    def __init__(self, bank, db_collection):
         self.bank = bank
         self.db_collection = db_collection
+
+    @classmethod
+    async def new(cls, bank: fiobank.FioBank, db_collection: MongoCollection):
+        await db_collection.create_index([("id", pymongo.DESCENDING)], unique=True)
+        return cls._create(bank, db_collection)
 
     async def get_new_transactions(self) -> List[Transaction]:
         """

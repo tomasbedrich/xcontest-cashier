@@ -3,15 +3,12 @@ import functools
 import logging
 import re
 from datetime import timedelta, date
-from typing import Optional
 
-import pymongo
 import sentry_sdk
 from aiogram import Bot, Dispatcher, types
 from aiogram.dispatcher.filters import CommandStart, CommandHelp, IDFilter
 from aiohttp import ClientSession, DummyCookieJar, ClientTimeout, ClientError
 from fiobank import FioBank
-from motor.core import AgnosticCollection as MongoCollection
 from motor.motor_asyncio import AsyncIOMotorClient
 from sentry_sdk.integrations.aiohttp import AioHttpIntegration
 
@@ -43,20 +40,6 @@ CMD_PAIR_REGEX = re.compile(
         )
     )
 )
-
-# Mongo
-mongo_client: Optional[AsyncIOMotorClient] = None
-db: Optional[MongoCollection] = None
-
-
-# FIXME
-def get_db():
-    global mongo_client, db
-    if db is None:
-        mongo_client = AsyncIOMotorClient(config["MONGO_CONNECTION_STRING"])
-        db = mongo_client.default
-    return db
-
 
 cron_task = functools.partial(cron_task, run_after_startup=config["RUN_TASKS_AFTER_STARTUP"])
 
@@ -208,26 +191,11 @@ def handle_exception(loop, context):
         task.cancel()
 
 
-async def _smoke_test_mongo():
-    log.info(f"Smoke testing connection to Mongo")
-    await get_db().transactions.find_one()
-
-
-async def setup_mongo_indices():
-    await asyncio.gather(
-        get_db().flights.create_index([("id", pymongo.DESCENDING)], unique=True),
-        get_db().transactions.create_index([("id", pymongo.DESCENDING)], unique=True),
-        get_db().membership.create_index([("transaction_id", pymongo.DESCENDING)], unique=True),
-    )
-
-
 async def main():
     loop = asyncio.get_event_loop()
     loop.set_exception_handler(handle_exception)
 
-    await _smoke_test_mongo()
-    await setup_mongo_indices()
-
+    db = AsyncIOMotorClient(config["MONGO_CONNECTION_STRING"]).default
     # TODO close session
     session = ClientSession(
         timeout=ClientTimeout(total=10),
@@ -235,12 +203,11 @@ async def main():
         cookie_jar=DummyCookieJar(),
         headers={"User-Agent": config["USER_AGENT"]},
     )
-
     bank = FioBank(config["FIO_API_TOKEN"])
 
-    trans_storage = TransactionStorage(bank, get_db().transactions)
-    membership_storage = MembershipStorage(get_db().membership)
-    flight_storage = FlightStorage(session, get_db().flights)
+    trans_storage = await TransactionStorage.new(bank, db.transactions)
+    membership_storage = await MembershipStorage.new(db.membership)
+    flight_storage = await FlightStorage.new(session, db.flights)
 
     asyncio.create_task(touch_liveness_probe(), name="touch_liveness_probe")
     asyncio.create_task(watch_transactions(trans_storage), name="watch_transactions")
