@@ -113,9 +113,9 @@ async def pair(session, membership_storage, message: types.Message):
 
 @cron_task(config["FLIGHT_WATCH_CRON"])
 async def watch_flights(flight_storage, membership_storage):
-    takeoff = Takeoff.DOUBRAVA  # TODO watch all Takeoffs
     day = date.today() - timedelta(days=config["FLIGHT_WATCH_DAYS_BACK"])
-    async for flight in flight_storage.get_flights(takeoff, day):
+    # beware that `Takeoff` is passed as iterable
+    async for flight in flight_storage.get_flights(day, Takeoff):
         asyncio.create_task(process_flight(flight_storage, membership_storage, flight))
 
 

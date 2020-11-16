@@ -1,13 +1,14 @@
 import asyncio
 import logging
-from typing import AsyncIterable
+import random
+from typing import AsyncIterable, Iterable
 
 import pymongo
 from aiohttp import ClientSession
 from motor.core import AgnosticCollection as MongoCollection
 
 from cashier.util import NoPublicConstructor
-from cashier.xcontest import Flight, get_flights
+from cashier.xcontest import Takeoff, Flight, get_flights
 
 log = logging.getLogger(__name__)
 
@@ -22,9 +23,20 @@ class FlightStorage(metaclass=NoPublicConstructor):
         await db_collection.create_index([("id", pymongo.DESCENDING)], unique=True)
         return cls._create(session, db_collection)
 
-    async def get_flights(self, takeoff, day) -> AsyncIterable[Flight]:
+    async def get_flights(self, day, takeoffs: Iterable[Takeoff]) -> AsyncIterable[Flight]:
         """
-        Get all flights for given takeoff and date.
+        Get all flights for given date and takeoffs.
+
+        Chain flights from all takeoffs into one iterable.
+        """
+        for takeoff in takeoffs:
+            async for flight in self._get_flights_one_takeoff(day, takeoff):
+                yield flight
+            await asyncio.sleep(random.randint(5, 15))
+
+    async def _get_flights_one_takeoff(self, day, takeoff: Takeoff) -> AsyncIterable[Flight]:
+        """
+        Get all flights for given date and takeoff (one).
 
         In case of any error, try 3 times, then fail.
         """
