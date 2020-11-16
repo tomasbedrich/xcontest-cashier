@@ -234,7 +234,8 @@ async def main():
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+    logging.getLogger("cashier").setLevel(logging.DEBUG)
     log.info("Starting")
     try:
         asyncio.run(main())
