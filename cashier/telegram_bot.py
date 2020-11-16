@@ -9,6 +9,7 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.dispatcher.filters import CommandStart, CommandHelp, IDFilter
 from aiohttp import ClientSession, DummyCookieJar, ClientTimeout, ClientError
 from fiobank import FioBank
+from motor.core import AgnosticCollection as MongoCollection
 from motor.motor_asyncio import AsyncIOMotorClient
 from sentry_sdk.integrations.aiohttp import AioHttpIntegration
 
@@ -191,28 +192,45 @@ def handle_exception(loop, context):
         task.cancel()
 
 
+class Container:
+    """Dependency container for clean resource management."""
+
+    db: MongoCollection
+    session: ClientSession
+    bank: FioBank
+    transaction_storage: TransactionStorage
+    membership_storage: MembershipStorage
+    flight_storage: FlightStorage
+
+    def __init__(self):
+        self.db = AsyncIOMotorClient(config["MONGO_CONNECTION_STRING"]).default
+        self.bank = FioBank(config["FIO_API_TOKEN"])
+
+    async def __aenter__(self) -> "Container":
+        self.session = ClientSession(
+            timeout=ClientTimeout(total=10),
+            raise_for_status=True,
+            cookie_jar=DummyCookieJar(),
+            headers={"User-Agent": config["USER_AGENT"]},
+        )
+        self.transaction_storage = await TransactionStorage.new(self.bank, self.db.transactions)
+        self.membership_storage = await MembershipStorage.new(self.db.membership)
+        self.flight_storage = await FlightStorage.new(self.session, self.db.flights)
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.session.close()
+
+
 async def main():
     loop = asyncio.get_event_loop()
     loop.set_exception_handler(handle_exception)
-
-    db = AsyncIOMotorClient(config["MONGO_CONNECTION_STRING"]).default
-    # TODO close session
-    session = ClientSession(
-        timeout=ClientTimeout(total=10),
-        raise_for_status=True,
-        cookie_jar=DummyCookieJar(),
-        headers={"User-Agent": config["USER_AGENT"]},
-    )
-    bank = FioBank(config["FIO_API_TOKEN"])
-
-    trans_storage = await TransactionStorage.new(bank, db.transactions)
-    membership_storage = await MembershipStorage.new(db.membership)
-    flight_storage = await FlightStorage.new(session, db.flights)
-
     asyncio.create_task(touch_liveness_probe(), name="touch_liveness_probe")
-    asyncio.create_task(watch_transactions(trans_storage), name="watch_transactions")
-    asyncio.create_task(watch_flights(flight_storage, membership_storage), name="watch_flights")
-    await handle_telegram(session, membership_storage)
+
+    async with Container() as c:
+        asyncio.create_task(watch_transactions(c.transaction_storage), name="watch_transactions")
+        asyncio.create_task(watch_flights(c.flight_storage, c.membership_storage), name="watch_flights")
+        await handle_telegram(c.session, c.membership_storage)
 
 
 if __name__ == "__main__":
