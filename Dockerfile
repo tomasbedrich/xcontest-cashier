@@ -7,7 +7,7 @@ RUN pip3 uninstall -y pipenv
 
 COPY cashier /app
 
-HEALTHCHECK CMD test "$(find /tmp/liveness -mtime -30s)" || exit 1
+HEALTHCHECK CMD test "$(find /tmp/liveness -mmin -1)" || exit 1
 
 ENV PYTHONPATH "/app"
 

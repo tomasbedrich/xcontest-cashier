@@ -23,7 +23,7 @@ config.init("RUN_TASKS_AFTER_STARTUP", bool_like, False)  # if True, first run t
 config.init("USER_AGENT", str, "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.114 Safari/537.36")
 
 config.init("LIVENESS", Path, Path("/tmp/liveness"))
-config.init("LIVENESS_SLEEP", int, 10)  # seconds
+config.init("LIVENESS_SLEEP", int, 20)  # seconds
 
 config.init("FIO_API_TOKEN", str, None)
 

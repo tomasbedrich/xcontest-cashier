@@ -21,7 +21,7 @@ In form `KEY=default`:
 - `APP_FLIGHT_WATCH_DAYS_BACK=30`: How many days to the past to look for uploaded flights (positive number!). Making this value higher gives more time to pilots to pay starting fee before marking the flight as offending.
 - `APP_USER_AGENT=...`: User agent to use for XContest HTTP calls.
 - `APP_LIVENESS=/tmp/liveness`: A path to liveness probe touch file.
-- `APP_LIVENESS_SLEEP=10`: How often to touch a liveness probe.
+- `APP_LIVENESS_SLEEP=20`: How often to touch a liveness probe (in seconds).
 - `APP_MONGO_DATABASE=default`: A Mongo database name used for the app.
 
 ## Local development
