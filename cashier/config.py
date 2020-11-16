@@ -4,6 +4,8 @@ from pathlib import Path
 
 config = Config()
 
+# Keep README in sync!
+
 config.init("TELEGRAM_BOT_TOKEN", str, None)
 config.init("TELEGRAM_CHAT_ID", int, None)
 
@@ -25,6 +27,7 @@ config.init("LIVENESS_SLEEP", int, 10)  # seconds
 
 config.init("FIO_API_TOKEN", str, None)
 
-config.init("MONGO_CONNECTION_STRING", str)
+config.init("MONGO_CONNECTION_STRING", str, None)
+config.init("MONGO_DATABASE", str, "cashier")
 
 config.load()

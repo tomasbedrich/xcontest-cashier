@@ -114,6 +114,7 @@ async def pair(session, membership_storage, message: types.Message):
 
 @cron_task(config["FLIGHT_WATCH_CRON"])
 async def watch_flights(flight_storage, membership_storage):
+    # TODO add backoff when XContest is down
     day = date.today() - timedelta(days=config["FLIGHT_WATCH_DAYS_BACK"])
     # beware that `Takeoff` is passed as iterable
     async for flight in flight_storage.get_flights(day, Takeoff):
@@ -203,7 +204,8 @@ class Container:
     flight_storage: FlightStorage
 
     def __init__(self):
-        self.db = AsyncIOMotorClient(config["MONGO_CONNECTION_STRING"]).default
+        db_client = AsyncIOMotorClient(config["MONGO_CONNECTION_STRING"])
+        self.db = db_client[config["MONGO_DATABASE"]]
         self.bank = FioBank(config["FIO_API_TOKEN"])
 
     async def __aenter__(self) -> "Container":
