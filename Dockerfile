@@ -1,8 +1,9 @@
-FROM python:3.9
+FROM python:3.9-slim
 
-RUN pip3 install pipenv
+RUN pip3 install --no-cache-dir pipenv
 COPY Pipfile Pipfile.lock /app/
 RUN cd /app && pipenv install --deploy --system
+RUN pip3 uninstall -y pipenv
 
 COPY cashier /app
 
