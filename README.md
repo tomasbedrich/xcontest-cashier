@@ -51,3 +51,12 @@ Then run:
 docker-compose build
 docker-compose run cashier
 ```
+
+## Deployment
+See `deploy.sh`.
+**BEWARE** that the script is tailored for a custom server (`chown`s a specific username), but it's easy to update it.
+
+### Requirements
+- SSH access to a Linux machine.
+- Docker + docker-compose installed.
+- `.env` set up.
