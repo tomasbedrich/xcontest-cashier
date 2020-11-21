@@ -3,6 +3,7 @@ services:
   cashier:
     build: .
     image: tomasbedrich/xcontest-cashier
+    restart: always
     volumes:
       - ./cashier:/app/cashier
     env_file:
@@ -21,7 +22,6 @@ services:
 
   mongo-express:
     image: mongo-express:latest
-    restart: always
     ports:
       - 8081:8081
     environment:
