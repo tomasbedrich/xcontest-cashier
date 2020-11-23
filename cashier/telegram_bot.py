@@ -1,12 +1,14 @@
 import asyncio
 import functools
 import logging
+import random
 import re
 from datetime import timedelta, date
 
 import sentry_sdk
 from aiogram import Bot, Dispatcher, types
 from aiogram.dispatcher.filters import CommandStart, CommandHelp, IDFilter
+from aiogram.utils.exceptions import RetryAfter, RestartingTelegram
 from aiohttp import ClientSession, DummyCookieJar, ClientTimeout, ClientError
 from fiobank import FioBank
 from motor.core import AgnosticCollection as MongoCollection
@@ -56,6 +58,18 @@ def guarded_message_handler(*custom_filters, **kwargs):
     return decorator
 
 
+async def _send_message(*args, **kwargs):
+    """Send a Telegram message handling retries if needed."""
+    while True:
+        try:
+            return await bot.send_message(*args, **kwargs)
+        except RetryAfter as e:
+            # this happens quite often since we may post many flights during a spike
+            await asyncio.sleep(e.timeout + random.uniform(0, 10))
+        except RestartingTelegram:
+            await asyncio.sleep(10 + random.uniform(0, 10))
+
+
 # Step 1
 # Get a transaction from the bank account.
 @cron_task(config["TRANSACTION_WATCH_CRON"])
@@ -75,7 +89,7 @@ async def process_transaction(trans_storage: TransactionStorage, trans: Transact
     except ValueError:
         membership_type = None
     msg = new_transaction_msg(trans, membership_type)
-    await bot.send_message(CHAT_ID, msg, parse_mode="HTML")
+    await _send_message(CHAT_ID, msg, parse_mode="HTML")
 
 
 async def _parse_pair_args(session: ClientSession, args: str) -> Membership:
@@ -132,7 +146,7 @@ async def process_flight(flight_storage: FlightStorage, membership_storage: Memb
     if not membership:
         log.debug(f"No membership found for flight {flight.id}, reporting")
         msg = offending_flight_msg(flight)
-        asyncio.create_task(bot.send_message(CHAT_ID, msg, parse_mode="HTML"))
+        asyncio.create_task(_send_message(CHAT_ID, msg, parse_mode="HTML"))
     else:
         log.debug(f"Found membership for flight {flight.id}: {membership}")
         # following updates are idempotent
