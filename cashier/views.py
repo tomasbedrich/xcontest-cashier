@@ -27,6 +27,9 @@ def new_transaction_msg(transaction: Transaction, membership_type: Optional[Memb
         )
     else:
         lines.append("Membership type not detected. Please resolve manually.")
+        lines.append(
+            f"Pairing command: <code>/{CMD_PAIR} {transaction.id} &lt;MEMBERSHIP_TYPE&gt; &lt;PILOT_USERNAME&gt;</code>"
+        )
     return "\n".join(lines)
 
 
