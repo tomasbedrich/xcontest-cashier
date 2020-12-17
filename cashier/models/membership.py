@@ -2,6 +2,7 @@ import dataclasses
 import datetime
 import enum
 import logging
+import uuid
 from typing import Optional
 
 import pymongo
@@ -18,6 +19,7 @@ class Membership:
     transaction_id: str
     type: "Type"
     pilot: Pilot
+    id: uuid.UUID = dataclasses.field(default_factory=uuid.uuid4)
     date_paired: datetime.date = dataclasses.field(default_factory=datetime.date.today)
     used_for: Optional[str] = None
 
@@ -54,6 +56,7 @@ class Membership:
             transaction_id=obj["transaction_id"],
             type=cls.Type.from_str(obj["type"]),
             pilot=Pilot.from_dict(obj["pilot"]),
+            id=obj["id"],
             date_paired=datetime.date.fromisoformat(obj["date_paired"]) if obj["date_paired"] else None,
             used_for=obj.get("used_for"),
         )
@@ -65,18 +68,14 @@ class MembershipStorage(metaclass=NoPublicConstructor):
 
     @classmethod
     async def new(cls, db_collection: MongoCollection):
-        await db_collection.create_index([("transaction_id", pymongo.DESCENDING)], unique=True)
+        await db_collection.create_index([("id", pymongo.DESCENDING)], unique=True)
         return cls._create(db_collection)
 
     async def create_membership(self, membership: Membership):
         """
-        Create a membership if doesn't exist yet.
+        Create a membership.
         """
         log.info(f"Creating {membership}")
-        if existing := await self.db_collection.find_one({"transaction_id": membership.transaction_id}):
-            raise ValueError(
-                f"This transaction is already paired as {existing['type']} for pilot {existing['pilot']['username']}"
-            )
         await self.db_collection.insert_one(membership.as_dict())
 
     async def get_by_flight(self, flight: Flight) -> Optional[Membership]:
@@ -120,6 +119,6 @@ class MembershipStorage(metaclass=NoPublicConstructor):
         elif membership.type == Membership.Type.daily:
             used_for = flight.datetime.date().isoformat()
         await self.db_collection.update_one(
-            {"transaction_id": membership.transaction_id},
+            {"id": membership.id},
             {"$set": {"used_for": used_for}},  # NOQA - let's crash if `used_for` is not set, this shouldn't happen
         )
