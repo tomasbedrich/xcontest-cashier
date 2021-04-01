@@ -52,6 +52,10 @@ class Pilot:
     def url(self):
         return "https://www.xcontest.org/world/en/pilots/detail:" + self.username
 
+    @property
+    def private_message_url(self):
+        return f"https://www.xcontest.org/world/en/private-messages:{self.username}#thread-create"
+
     def __eq__(self, other):
         if isinstance(other, Pilot):
             return self.username == other.username
@@ -66,6 +70,10 @@ class Pilot:
     @classmethod
     def from_dict(cls, obj: dict):
         return cls(username=obj["username"], name=obj.get("name"), id=obj.get("id"),)
+
+    async def send_private_message(self, session: ClientSession, message):
+        # TODO
+        pass
 
 
 @dataclasses.dataclass(frozen=True)
@@ -103,10 +111,14 @@ class Flight(object):
     def as_dict(self):
         return dataclasses.asdict(self)
 
-
-def post_flight_comment(flight_id, comment):
-    # TODO
-    pass
+    @classmethod
+    def from_dict(cls, obj):
+        return cls(
+            id=obj["id"],
+            link=obj["link"],
+            pilot=Pilot.from_dict(obj["pilot"]),
+            datetime=obj["datetime"],
+        )
 
 
 async def get_flights(

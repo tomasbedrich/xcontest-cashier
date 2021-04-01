@@ -1,2 +1,2 @@
 CMD_PAIR = "pair"
-CMD_COMMENT = "comment"
+CMD_NOTIFY = "notify"

@@ -23,6 +23,10 @@ class FlightStorage(metaclass=NoPublicConstructor):
         await db_collection.create_index([("id", pymongo.DESCENDING)], unique=True)
         return cls._create(session, db_collection)
 
+    async def get_flight(self, id_):
+        res = await self.db_collection.find_one({"id": id_})
+        return Flight.from_dict(res) if res else None
+
     async def get_flights(self, day, takeoffs: Iterable[Takeoff]) -> AsyncIterable[Flight]:
         """
         Get all flights for given date and takeoffs.

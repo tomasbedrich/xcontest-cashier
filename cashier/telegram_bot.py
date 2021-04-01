@@ -16,12 +16,12 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from sentry_sdk.integrations.aiohttp import AioHttpIntegration
 
 from cashier.config import config
-from cashier.const import CMD_PAIR, CMD_COMMENT
+from cashier.const import CMD_PAIR, CMD_NOTIFY
 from cashier.models.flight import FlightStorage
 from cashier.models.membership import Membership, MembershipStorage
 from cashier.models.transaction import Transaction, TransactionStorage
 from cashier.util import cron_task
-from cashier.views import new_transaction_msg, help_msg, start_msg, offending_flight_msg
+from cashier.views import new_transaction_msg, help_msg, start_msg, offending_flight_msg, unpaid_fee_msg
 from cashier.xcontest import Takeoff, Pilot, Flight
 
 # telemetry
@@ -43,6 +43,7 @@ CMD_PAIR_REGEX = re.compile(
         )
     )
 )
+CMD_NOTIFY_REGEX = re.compile(r"^(?P<flight_id>\d+)$")
 
 cron_task = functools.partial(cron_task, run_after_startup=config["RUN_TASKS_AFTER_STARTUP"])
 
@@ -155,6 +156,42 @@ async def process_flight(flight_storage: FlightStorage, membership_storage: Memb
     await flight_storage.store_flight(flight)
 
 
+def _parse_notify_args(args: str) -> str:
+    log.info("Parsing a notify command")
+
+    match = CMD_NOTIFY_REGEX.search(args)
+    if not match:
+        raise ValueError("Notify command doesn't match expected format")
+    command_data = match.groupdict()
+
+    return command_data["flight_id"]
+
+
+# Notify a pilot about unpaid fees.
+# We would normally decorate this with @guarded_message_handler, but we need to bind `session` and `flight_storage`,
+# therefore we register this in `handle_telegram()`
+async def notify(session, flight_storage, message: types.Message):
+    try:
+        flight_id = _parse_notify_args(message.get_args())
+    except ValueError as e:
+        return await message.answer(f"{str(e)}. Please see /help")
+
+    try:
+        flight = await flight_storage.get_flight(flight_id)
+        if not flight:
+            raise ValueError("Flight with given ID wasn't found.")
+    except ValueError as e:
+        return await message.answer(str(e))
+
+    msg = unpaid_fee_msg(flight, message.from_user.full_name)
+    # TODO actual DM sending + confirmation before send?
+    await message.answer(
+        f'<strong>I would have sent following message to <a href="{flight.pilot.private_message_url}">{flight.pilot.username}</a>:</strong>\n\n{msg}',
+        disable_web_page_preview=True,
+        parse_mode="HTML",
+    )
+
+
 @guarded_message_handler(CommandStart())
 async def start(message: types.Message):
     await message.answer(start_msg(), parse_mode="HTML")
@@ -165,12 +202,6 @@ async def help_(message: types.Message):
     await message.answer(help_msg(), parse_mode="HTML")
 
 
-@guarded_message_handler(commands=[CMD_COMMENT])
-async def comment(message: types.Message):
-    # TODO
-    await message.answer("Not implemented yet")
-
-
 async def touch_liveness_probe():
     log.info("Starting liveness touch loop")
     while True:
@@ -178,8 +209,10 @@ async def touch_liveness_probe():
         await asyncio.sleep(config["LIVENESS_SLEEP"])
 
 
-async def handle_telegram(session: ClientSession, membership_storage: MembershipStorage):
+async def handle_telegram(session: ClientSession, flight_storage: FlightStorage, membership_storage: MembershipStorage):
     guarded_message_handler(commands=[CMD_PAIR])(functools.partial(pair, session, membership_storage))
+    # TODO we need logged in session
+    guarded_message_handler(commands=[CMD_NOTIFY])(functools.partial(notify, session, flight_storage))
 
     # startup message + cleanup copied from aiogram.executor
     user = await dispatcher.bot.me
@@ -246,7 +279,7 @@ async def main():
     async with Container() as c:
         asyncio.create_task(watch_transactions(c.transaction_storage), name="watch_transactions")
         asyncio.create_task(watch_flights(c.flight_storage, c.membership_storage), name="watch_flights")
-        await handle_telegram(c.session, c.membership_storage)
+        await handle_telegram(c.session, c.flight_storage, c.membership_storage)
 
 
 if __name__ == "__main__":

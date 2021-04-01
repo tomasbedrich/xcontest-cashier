@@ -2,9 +2,10 @@ from typing import Optional
 
 from aiogram.utils.emoji import emojize
 
-from cashier.const import CMD_PAIR, CMD_COMMENT
+from cashier.const import CMD_PAIR, CMD_NOTIFY
 from cashier.models.membership import Membership
 from cashier.models.transaction import Transaction
+from cashier.osloveni import osloveni
 
 
 def new_transaction_msg(transaction: Transaction, membership_type: Optional[Membership.Type]):
@@ -37,9 +38,21 @@ def offending_flight_msg(flight):
     lines = [
         "<strong>Offending flight:</strong>",
         flight.link,
-        f"Comment command: <code>/{CMD_COMMENT} {flight.id}</code>",
+        f"Notify command: <code>/{CMD_NOTIFY} {flight.id}</code>",
     ]
     return "\n".join(lines)
+
+
+def unpaid_fee_msg(flight, signature):
+    return f"""Ahoj {osloveni(flight.pilot.name.split(" ")[0])},
+
+Píšu Ti jménem PG klubu Plzeň. Na základě automatizované kontroly pilotů, kteří (ne)mají zaplacené startovací poplatky nám vyběhl Tvůj let: {flight.link}.
+
+Můžeme Tě zpětně poprosit o zaplacení poplatku? Jestli si vybereš denní / roční, to je na Tobě. Všechny detaily k platbě najdeš zde: https://pgplzen.cz/
+
+Děkujeme! Přispěješ tím na nájem startovacích a přistávacích ploch, jejich údržbu a provoz meteo sond.
+
+Za klub, {signature}"""
 
 
 def start_msg():
@@ -49,6 +62,6 @@ def start_msg():
 def help_msg():
     lines = [
         f"<code>/{CMD_PAIR} &lt;TRANSACTION_ID&gt; &lt;MEMBERSHIP_TYPE&gt; &lt;PILOT_USERNAME&gt;</code> - pair a transaction to a pilot (create a membership of given type)",
-        f"<code>/{CMD_COMMENT} &lt;FLIGHT_ID&gt;</code> - write an angry comment to the flight",
+        f"<code>/{CMD_NOTIFY} &lt;FLIGHT_ID&gt;</code> - notify a pilot about unpaid fees (based on given flight)",
     ]
     return "\n".join(lines)
