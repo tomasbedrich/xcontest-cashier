@@ -7,7 +7,7 @@ from enum import Enum
 from typing import Union, Iterable, AsyncIterable, Optional
 from urllib.parse import urljoin
 
-from aiohttp import ClientSession, DummyCookieJar, ClientTimeout
+from aiohttp import ClientSession, ClientTimeout
 from bs4 import BeautifulSoup, SoupStrainer
 
 log = logging.getLogger(__name__)
@@ -152,7 +152,8 @@ async def _download_pages(
     offset, has_next = 0, True
     while has_next:
         url = f"https://www.xcontest.org/world/cs/vyhledavani-preletu/?list[sort]=time_start&list[dir]=up&list[start]={offset}&filter[point]={lat}%20{lon}&filter[mode]=START&filter[date]={date}&filter[date_mode]=dmy"
-        page = await (await session.get(url)).text()
+        res = await session.get(url)
+        page = await res.text()
         yield page
         if has_next := _has_next_page(page):
             offset += 50  # hardcoded to match xcontest
@@ -181,8 +182,15 @@ def _parse_page(page: str) -> Iterable[Flight]:
 
 
 async def _main():
+    import os
+
     async with ClientSession(
-        timeout=ClientTimeout(total=10), raise_for_status=True, cookie_jar=DummyCookieJar()
+        timeout=ClientTimeout(total=10),
+        raise_for_status=True,
+        cookies={
+            "PHPSESSID": os.getenv("APP_SESSION_ID"),
+            "AStat": "Y",
+        },
     ) as session:
         async for flight in get_flights(session, Takeoff.DOUBRAVA, "2020-10-18"):
             print(flight.as_dict())

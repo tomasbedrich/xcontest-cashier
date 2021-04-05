@@ -259,8 +259,11 @@ class Container:
         self.session = ClientSession(
             timeout=ClientTimeout(total=10),
             raise_for_status=True,
-            cookie_jar=DummyCookieJar(),
             headers={"User-Agent": config["USER_AGENT"]},
+            cookies={
+                "PHPSESSID": config["SESSION_ID"],
+                "AStat": "Y",
+            }
         )
         self.transaction_storage = await TransactionStorage.new(self.bank, self.db.transactions)
         self.membership_storage = await MembershipStorage.new(self.db.membership)
