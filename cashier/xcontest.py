@@ -142,7 +142,7 @@ async def get_phpsessionid(session: ClientSession, username: str, password: str)
     url = "https://www.xcontest.org/world/en/"    
     payload = {'login[username]':username, 'login[password]':password, 'login[persist_login]' : 'Y'}
     result = session.post(url, data=payload)
-    cookie = {'PHPSESSID': requests.utils.dict_from_cookiejar(s.cookies)['PHPSESSID']}
+    cookie = {'PHPSESSID': requests.utils.dict_from_cookiejar(result.cookies)['PHPSESSID']}
     return cookie
 
 async def _download_pages(
