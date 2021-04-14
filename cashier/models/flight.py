@@ -8,7 +8,7 @@ from aiohttp import ClientSession
 from motor.core import AgnosticCollection as MongoCollection
 
 from cashier.util import NoPublicConstructor
-from cashier.xcontest import Takeoff, Flight, get_flights
+from cashier.xcontest import Takeoff, Flight, get_flights, login
 
 log = logging.getLogger(__name__)
 
@@ -17,6 +17,7 @@ class FlightStorage(metaclass=NoPublicConstructor):
     def __init__(self, session, db_collection):
         self.session = session
         self.db_collection = db_collection
+        await login(self.session, os.getenv("APP_XCONTEST_USERNAME"), os.getenv("APP_XCONTEST_PASSWORD"))
 
     @classmethod
     async def new(cls, session: ClientSession, db_collection: MongoCollection):

@@ -134,16 +134,14 @@ async def get_flights(
         for flight in _parse_page(page):
             yield flight
 
-async def get_phpsessionid(session: ClientSession, username: str, password: str) -> str:
+async def login(session: ClientSession, username: str, password: str):
     """
-    Login to the XContest and return PHPSESSID    
+    Login to the XContest   
     """
-    log.info(f"Logging to XContest... {date=}.")
+    log.info("Logging to XContest...")    
     url = "https://www.xcontest.org/world/en/"    
     payload = {'login[username]':username, 'login[password]':password, 'login[persist_login]' : 'Y'}
-    result = session.post(url, data=payload)
-    cookie = {'PHPSESSID': requests.utils.dict_from_cookiejar(result.cookies)['PHPSESSID']}
-    return cookie
+    await session.post(url, data=payload)    
 
 async def _download_pages(
     session: ClientSession, takeoff: Takeoff, date: Union[datetime.date, str], sleep: int
@@ -196,15 +194,10 @@ async def _main():
 
     async with ClientSession(
         timeout=ClientTimeout(total=10),
-        raise_for_status=True,
-        cookies={
-            "PHPSESSID": os.getenv("APP_SESSION_ID"),
-            "AStat": "Y",
-        },
+        raise_for_status=True
     ) as session:
         async for flight in get_flights(session, Takeoff.DOUBRAVA, "2020-10-18"):
             print(flight.as_dict())
-
 
 if __name__ == "__main__":
     asyncio.run(_main())
