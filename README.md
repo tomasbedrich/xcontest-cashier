@@ -11,7 +11,8 @@ You can use `.env` file.
 - `APP_FIO_API_TOKEN`: A Fio bank access token generated using their [internet banking](https://ib.fio.cz/ib/login).
 - `APP_MONGO_CONNECTION_STRING`: A [connection string](https://docs.mongodb.com/manual/reference/connection-string/) to a Mongo instance.
 - `APP_SESSION_ID=...`: Session ID (PHPSESSID) to use for XContest HTTP calls.
-
+- `APP_XCONTEST_USERNAME=...`: XContest user name
+- `APP_XCONTEST_PASSWORD=...`: Xcontest password
 ### Optional
 In form `KEY=default`:
 - `APP_SENTRY_DSN`: [Sentry](https://sentry.io/) error reporting access token. If empty, error reporting is turned off.
@@ -34,6 +35,8 @@ APP_TELEGRAM_CHAT_ID=...
 APP_FIO_API_TOKEN=...
 APP_MONGO_CONNECTION_STRING=mongodb://root:root@mongo:27017
 APP_SESSION_ID=...
+APP_XCONTEST_USERNAME=...
+APP_XCONTEST_PASSWORD=...
 
 # optional
 APP_TRANSACTION_WATCH_CRON="* * * * *"
