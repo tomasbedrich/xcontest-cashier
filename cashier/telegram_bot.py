@@ -9,7 +9,7 @@ import sentry_sdk
 from aiogram import Bot, Dispatcher, types
 from aiogram.dispatcher.filters import CommandStart, CommandHelp, IDFilter
 from aiogram.utils.exceptions import RetryAfter, RestartingTelegram
-from aiohttp import ClientSession, DummyCookieJar, ClientTimeout, ClientError
+from aiohttp import ClientSession, ClientTimeout, ClientError
 from fiobank import FioBank
 from motor.core import AgnosticCollection as MongoCollection
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -257,12 +257,7 @@ class Container:
 
     async def __aenter__(self) -> "Container":
         self.session = ClientSession(
-            timeout=ClientTimeout(total=10),
-            raise_for_status=True,
-            headers={"User-Agent": config["USER_AGENT"]},
-            cookies={
-                "AStat": "Y",
-            }
+            timeout=ClientTimeout(total=10), raise_for_status=True, headers={"User-Agent": config["USER_AGENT"]},
         )
         self.transaction_storage = await TransactionStorage.new(self.bank, self.db.transactions)
         self.membership_storage = await MembershipStorage.new(self.db.membership)

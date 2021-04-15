@@ -113,12 +113,17 @@ class Flight(object):
 
     @classmethod
     def from_dict(cls, obj):
-        return cls(
-            id=obj["id"],
-            link=obj["link"],
-            pilot=Pilot.from_dict(obj["pilot"]),
-            datetime=obj["datetime"],
-        )
+        return cls(id=obj["id"], link=obj["link"], pilot=Pilot.from_dict(obj["pilot"]), datetime=obj["datetime"])
+
+
+async def login(session: ClientSession, username: str, password: str):
+    """
+    Login to the XContest.
+    """
+    log.info(f"Logging to XContest as {username}...")
+    url = "https://www.xcontest.org/world/en/"
+    payload = {"login[username]": username, "login[password]": password, "login[persist_login]": "Y"}
+    await session.post(url, data=payload)
 
 
 async def get_flights(
@@ -134,14 +139,6 @@ async def get_flights(
         for flight in _parse_page(page):
             yield flight
 
-async def login(session: ClientSession, username: str, password: str):
-    """
-    Login to the XContest   
-    """
-    log.info("Logging to XContest...")    
-    url = "https://www.xcontest.org/world/en/"    
-    payload = {'login[username]':username, 'login[password]':password, 'login[persist_login]' : 'Y'}
-    await session.post(url, data=payload)    
 
 async def _download_pages(
     session: ClientSession, takeoff: Takeoff, date: Union[datetime.date, str], sleep: int
@@ -192,13 +189,11 @@ def _parse_page(page: str) -> Iterable[Flight]:
 async def _main():
     import os
 
-    async with ClientSession(
-        timeout=ClientTimeout(total=10),
-        raise_for_status=True,
-    ) as session:
+    async with ClientSession(timeout=ClientTimeout(total=10), raise_for_status=True) as session:
         await login(session, os.getenv("APP_XCONTEST_USERNAME"), os.getenv("APP_XCONTEST_PASSWORD"))
         async for flight in get_flights(session, Takeoff.DOUBRAVA, "2020-10-18"):
             print(flight.as_dict())
+
 
 if __name__ == "__main__":
     asyncio.run(_main())
