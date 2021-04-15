@@ -10,8 +10,8 @@ You can use `.env` file.
 - `APP_TELEGRAM_CHAT_ID`: A group chat ID for bot to operate on ([A guide to find it out](https://stackoverflow.com/a/32572159/570503)).
 - `APP_FIO_API_TOKEN`: A Fio bank access token generated using their [internet banking](https://ib.fio.cz/ib/login).
 - `APP_MONGO_CONNECTION_STRING`: A [connection string](https://docs.mongodb.com/manual/reference/connection-string/) to a Mongo instance.
-- `APP_XCONTEST_USERNAME=...`: XContest user name
-- `APP_XCONTEST_PASSWORD=...`: XContest password
+- `APP_XCONTEST_USERNAME`: XContest username used for fetching flights.
+- `APP_XCONTEST_PASSWORD`: XContest password.
 
 ### Optional
 In form `KEY=default`:
