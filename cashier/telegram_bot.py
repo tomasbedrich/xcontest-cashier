@@ -261,7 +261,9 @@ class Container:
         )
         self.transaction_storage = await TransactionStorage.new(self.bank, self.db.transactions)
         self.membership_storage = await MembershipStorage.new(self.db.membership)
-        self.flight_storage = await FlightStorage.new(self.session, self.db.flights)
+        self.flight_storage = await FlightStorage.new(
+            self.session, self.db.flights, config["XCONTEST_USERNAME"], config["XCONTEST_PASSWORD"]
+        )
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):

@@ -120,7 +120,7 @@ async def login(session: ClientSession, username: str, password: str):
     """
     Login to the XContest.
     """
-    log.info(f"Logging to XContest as {username}...")
+    log.info(f"Logging to XContest as {username=}")
     url = "https://www.xcontest.org/world/en/"
     payload = {"login[username]": username, "login[password]": password, "login[persist_login]": "Y"}
     await session.post(url, data=payload)
@@ -134,7 +134,7 @@ async def get_flights(
 
     Handle pagination in background and yield populated Flight objects.
     """
-    log.info(f"Downloading flights for {date=}, {takeoff=}.")
+    log.info(f"Downloading flights for {date=}, {takeoff=}")
     async for page in _download_pages(session, takeoff, date, sleep=sleep):
         for flight in _parse_page(page):
             yield flight
