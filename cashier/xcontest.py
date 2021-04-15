@@ -113,12 +113,17 @@ class Flight(object):
 
     @classmethod
     def from_dict(cls, obj):
-        return cls(
-            id=obj["id"],
-            link=obj["link"],
-            pilot=Pilot.from_dict(obj["pilot"]),
-            datetime=obj["datetime"],
-        )
+        return cls(id=obj["id"], link=obj["link"], pilot=Pilot.from_dict(obj["pilot"]), datetime=obj["datetime"])
+
+
+async def login(session: ClientSession, username: str, password: str):
+    """
+    Login to the XContest.
+    """
+    log.info(f"Logging to XContest as {username=}")
+    url = "https://www.xcontest.org/world/en/"
+    payload = {"login[username]": username, "login[password]": password, "login[persist_login]": "Y"}
+    await session.post(url, data=payload)
 
 
 async def get_flights(
@@ -129,7 +134,7 @@ async def get_flights(
 
     Handle pagination in background and yield populated Flight objects.
     """
-    log.info(f"Downloading flights for {date=}, {takeoff=}.")
+    log.info(f"Downloading flights for {date=}, {takeoff=}")
     async for page in _download_pages(session, takeoff, date, sleep=sleep):
         for flight in _parse_page(page):
             yield flight
@@ -184,14 +189,8 @@ def _parse_page(page: str) -> Iterable[Flight]:
 async def _main():
     import os
 
-    async with ClientSession(
-        timeout=ClientTimeout(total=10),
-        raise_for_status=True,
-        cookies={
-            "PHPSESSID": os.getenv("APP_SESSION_ID"),
-            "AStat": "Y",
-        },
-    ) as session:
+    async with ClientSession(timeout=ClientTimeout(total=10), raise_for_status=True) as session:
+        await login(session, os.getenv("APP_XCONTEST_USERNAME"), os.getenv("APP_XCONTEST_PASSWORD"))
         async for flight in get_flights(session, Takeoff.DOUBRAVA, "2020-10-18"):
             print(flight.as_dict())
 

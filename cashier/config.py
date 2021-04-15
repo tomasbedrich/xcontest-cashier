@@ -9,6 +9,9 @@ config = Config()
 config.init("TELEGRAM_BOT_TOKEN", str, None)
 config.init("TELEGRAM_CHAT_ID", int, None)
 
+config.init("XCONTEST_USERNAME", str, None)
+config.init("XCONTEST_PASSWORD", str, None)
+
 config.init("SENTRY_DSN", str, None)
 config.init("SENTRY_ENVIRONMENT", str, "production")
 
@@ -21,7 +24,6 @@ config.init("RUN_TASKS_AFTER_STARTUP", bool_like, False)  # if True, first run t
 
 # https://www.whatismybrowser.com/guides/the-latest-user-agent/chrome
 config.init("USER_AGENT", str, "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.114 Safari/537.36")
-config.init("SESSION_ID", str)
 
 config.init("LIVENESS", Path, Path("/tmp/liveness"))
 config.init("LIVENESS_SLEEP", int, 20)  # seconds
