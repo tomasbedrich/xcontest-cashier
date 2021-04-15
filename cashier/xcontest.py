@@ -194,8 +194,9 @@ async def _main():
 
     async with ClientSession(
         timeout=ClientTimeout(total=10),
-        raise_for_status=True
+        raise_for_status=True,
     ) as session:
+        await login(session, os.getenv("APP_XCONTEST_USERNAME"), os.getenv("APP_XCONTEST_PASSWORD"))
         async for flight in get_flights(session, Takeoff.DOUBRAVA, "2020-10-18"):
             print(flight.as_dict())
 

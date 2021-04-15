@@ -17,8 +17,7 @@ class FlightStorage(metaclass=NoPublicConstructor):
     def __init__(self, session, db_collection):
         self.session = session
         self.db_collection = db_collection
-        await login(self.session, os.getenv("APP_XCONTEST_USERNAME"), os.getenv("APP_XCONTEST_PASSWORD"))
-
+        
     @classmethod
     async def new(cls, session: ClientSession, db_collection: MongoCollection):
         await db_collection.create_index([("id", pymongo.DESCENDING)], unique=True)

@@ -261,7 +261,6 @@ class Container:
             raise_for_status=True,
             headers={"User-Agent": config["USER_AGENT"]},
             cookies={
-                "PHPSESSID": config["SESSION_ID"],
                 "AStat": "Y",
             }
         )
