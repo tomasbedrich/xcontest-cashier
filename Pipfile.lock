@@ -18,11 +18,11 @@
     "default": {
         "aiocron": {
             "hashes": [
-                "sha256:7f7c343b5bb18695206714f038726e3795e6dfa69affcc25abe17838d51be69c",
-                "sha256:f20b29ba8207d789b44ecb516ef084fa84d3e02dde1c82fa4009c90b072b63c7"
+                "sha256:3146674bd8f0ad5de5525d865eac02a4cc2207e15ff564f72288f4b900268ac7",
+                "sha256:89d598f6cfa07d344144cb87378ea285aadcf4c731becb575f275ac6c1153b5e"
             ],
             "index": "pypi",
-            "version": "==1.3"
+            "version": "==1.4"
         },
         "aiogram": {
             "hashes": [
@@ -91,10 +91,10 @@
         },
         "babel": {
             "hashes": [
-                "sha256:9d35c22fcc79893c3ecc85ac4a56cde1ecf3f19c540bba0922308a6c06ca6fa5",
-                "sha256:da031ab54472314f210b0adcff1588ee5d1d1d0ba4dbd07b94dba82bde791e05"
+                "sha256:ab49e12b91d937cd11f0b67cb259a57ab4ad2b59ac7a3b41d6c06c0ac5b0def9",
+                "sha256:bc0c176f9f6a994582230df350aa6e05ba2ebe4b3ac317eab29d9be5d2768da0"
             ],
-            "version": "==2.9.0"
+            "version": "==2.9.1"
         },
         "beautifulsoup4": {
             "hashes": [
@@ -127,10 +127,10 @@
         },
         "croniter": {
             "hashes": [
-                "sha256:364c48e393060295c3161588a6556d5c890b5c34299973c393adbe4488ca1ecb",
-                "sha256:652aec8d339ad7c1cf911975ac9664acded9f0974ce52b3a5d15edfb14f41a34"
+                "sha256:3603ef0d60fc6df98ce356c01529de90b06a002379b9f5e9eae981fb9c1fd936",
+                "sha256:d8d2033368f0176243c59360afeda19daf5baa2d6f712cf655b3104c5c349aa2"
             ],
-            "version": "==1.0.10"
+            "version": "==1.0.12"
         },
         "emoji": {
             "hashes": [
