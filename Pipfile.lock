@@ -91,10 +91,10 @@
         },
         "babel": {
             "hashes": [
-                "sha256:9d35c22fcc79893c3ecc85ac4a56cde1ecf3f19c540bba0922308a6c06ca6fa5",
-                "sha256:da031ab54472314f210b0adcff1588ee5d1d1d0ba4dbd07b94dba82bde791e05"
+                "sha256:ab49e12b91d937cd11f0b67cb259a57ab4ad2b59ac7a3b41d6c06c0ac5b0def9",
+                "sha256:bc0c176f9f6a994582230df350aa6e05ba2ebe4b3ac317eab29d9be5d2768da0"
             ],
-            "version": "==2.9.0"
+            "version": "==2.9.1"
         },
         "beautifulsoup4": {
             "hashes": [
@@ -127,10 +127,10 @@
         },
         "croniter": {
             "hashes": [
-                "sha256:364c48e393060295c3161588a6556d5c890b5c34299973c393adbe4488ca1ecb",
-                "sha256:652aec8d339ad7c1cf911975ac9664acded9f0974ce52b3a5d15edfb14f41a34"
+                "sha256:3603ef0d60fc6df98ce356c01529de90b06a002379b9f5e9eae981fb9c1fd936",
+                "sha256:d8d2033368f0176243c59360afeda19daf5baa2d6f712cf655b3104c5c349aa2"
             ],
-            "version": "==1.0.10"
+            "version": "==1.0.12"
         },
         "emoji": {
             "hashes": [
@@ -206,11 +206,11 @@
         },
         "motor": {
             "hashes": [
-                "sha256:428d94750123d19fcd0a89b8671ff9b4656f205217bad9f44161748c64c5fc80",
-                "sha256:f1692b760d834707e3477996ce8d407af8cd61c1a2abedbf81c22ef14675e61a"
+                "sha256:1196db507142ef8f00d953efa2f37b39335ef2d72af6ce4fbccfd870b65c5e9f",
+                "sha256:839c11a43897dbec8e5ba0e87a9c9b877239803126877b2efa5cef89aa6b687a"
             ],
             "index": "pypi",
-            "version": "==2.3.0"
+            "version": "==2.4.0"
         },
         "multidict": {
             "hashes": [
