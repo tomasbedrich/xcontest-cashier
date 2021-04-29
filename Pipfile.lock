@@ -26,11 +26,11 @@
         },
         "aiogram": {
             "hashes": [
-                "sha256:35c6b0998b2a175d718098c26c199a3643c4c33d68f7c97927a5b67239adc490",
-                "sha256:f37dd5906052af1120862f8ec7d23110e724dacc8c111b0ced9ddcdc9ca3ff3f"
+                "sha256:e1923ad789bb8d90a7b1edc5fce7dc33df982d1fedc6528c65cc38d2d88f1ae0",
+                "sha256:f656f57580fd8e1ad0f8fe645f59cf3ad40e9899050dd6ac999a8f0cdbf1b116"
             ],
             "index": "pypi",
-            "version": "==2.10.1"
+            "version": "==2.13"
         },
         "aiohttp": {
             "hashes": [
