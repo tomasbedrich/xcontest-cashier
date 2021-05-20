@@ -18,11 +18,11 @@
     "default": {
         "aiocron": {
             "hashes": [
-                "sha256:3146674bd8f0ad5de5525d865eac02a4cc2207e15ff564f72288f4b900268ac7",
-                "sha256:89d598f6cfa07d344144cb87378ea285aadcf4c731becb575f275ac6c1153b5e"
+                "sha256:21f00288e9993f4e44ae2e51d4301b7822512962fc900b59317d11299c125a6a",
+                "sha256:ab451380199ef09757f95085220cd34bf6970239bdb77863e3413ee08297fcc5"
             ],
             "index": "pypi",
-            "version": "==1.4"
+            "version": "==1.6"
         },
         "aiogram": {
             "hashes": [
