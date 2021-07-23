@@ -230,11 +230,11 @@
         },
         "motor": {
             "hashes": [
-                "sha256:1196db507142ef8f00d953efa2f37b39335ef2d72af6ce4fbccfd870b65c5e9f",
-                "sha256:839c11a43897dbec8e5ba0e87a9c9b877239803126877b2efa5cef89aa6b687a"
+                "sha256:2701f71129fac70d40291a2226bd3ce8682f529711ce2e463d5035d8e937cf9c",
+                "sha256:eafa05a7233f3373ee110b1d7ad0469f7aa942dcd60cb65f7474ae41628a0e0d"
             ],
             "index": "pypi",
-            "version": "==2.4.0"
+            "version": "==2.5.0"
         },
         "multidict": {
             "hashes": [
