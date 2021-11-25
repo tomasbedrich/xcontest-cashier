@@ -18,11 +18,11 @@
     "default": {
         "aiocron": {
             "hashes": [
-                "sha256:ad7d3b9bd88897934ffd18937ff235ab9fb01358280fd40e01461fd5f76348bd",
-                "sha256:f06d7b84b86d6cb7156c01e640b4122da86afaa4873c6bcf79e57c4762e48789"
+                "sha256:48546513faf2eb7901e65a64eba7b653c80106ed00ed9ca3419c3d10b6555a01",
+                "sha256:b6313214c311b62aa2220e872b94139b648631b3103d062ef29e5d3230ddce6d"
             ],
             "index": "pypi",
-            "version": "==1.7"
+            "version": "==1.8"
         },
         "aiogram": {
             "hashes": [
@@ -161,7 +161,7 @@
                 "sha256:f04e857b59d9d1ccc39ce2da1021d196e47234873820cbeaad210724b1ee28ac",
                 "sha256:fadbfe37f74051d024037f223b8e001611eac868b5c5b06144ef4d8b799862f2"
             ],
-            "markers": "python_version >= '3.6' and python_version < '3.9'",
+            "markers": "python_version < '3.9'",
             "version": "==0.2.1"
         },
         "beautifulsoup4": {
@@ -188,11 +188,11 @@
         },
         "charset-normalizer": {
             "hashes": [
-                "sha256:e019de665e2bcf9c2b64e2e5aa025fa991da8720daa3c1138cadd2fd1856aed0",
-                "sha256:f7af805c321bfa1ce6714c51f254e0d5bb5e5834039bc17db7ebe3a4cec9492b"
+                "sha256:735e240d9a8506778cd7a453d97e817e536bb1fc29f4f6961ce297b9c7a917b0",
+                "sha256:83fcdeb225499d6344c8f7f34684c2981270beacc32ede2e669e94f7fa544405"
             ],
-            "markers": "python_version >= '3'",
-            "version": "==2.0.7"
+            "markers": "python_full_version >= '3.5.0'",
+            "version": "==2.0.8"
         },
         "croniter": {
             "hashes": [
@@ -300,7 +300,7 @@
                 "sha256:84d9dd047ffa80596e0f246e2eab0b391788b0503584e8945f2368256d2735ff",
                 "sha256:9d643ff0a55b762d5cdb124b8eaa99c66322e2157b69160bc32796e824360e6d"
             ],
-            "markers": "python_version >= '3'",
+            "markers": "python_full_version >= '3.5.0'",
             "version": "==3.3"
         },
         "llconfig": {
