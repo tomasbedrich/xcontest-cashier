@@ -26,11 +26,11 @@
         },
         "aiogram": {
             "hashes": [
-                "sha256:d08398f317ffdfb5436ff20211d597d1777cb00967d24a8f57e47a2303ad0965",
-                "sha256:ffe51749cdc92d24db74a2636b5ca8e6a5a3e504d01f47b47a206d93ea6cad18"
+                "sha256:1ffb7e22e7d06bab0009cc2e9d5191a74273c8c482b0b782dcfde3deeeccbef0",
+                "sha256:60ef7564a6fd2def9057d6f097ac18da99346a758a25fad3f6a552c6672baabe"
             ],
             "index": "pypi",
-            "version": "==2.18"
+            "version": "==2.19"
         },
         "aiohttp": {
             "hashes": [
@@ -188,11 +188,11 @@
         },
         "charset-normalizer": {
             "hashes": [
-                "sha256:876d180e9d7432c5d1dfd4c5d26b72f099d503e8fcc0feb7532c9289be60fcbd",
-                "sha256:cb957888737fc0bbcd78e3df769addb41fd1ff8cf950dc9e7ad7793f1bf44455"
+                "sha256:2842d8f5e82a1f6aa437380934d5e1cd4fcf2003b06fed6940769c164a480a45",
+                "sha256:98398a9d69ee80548c762ba991a4728bfc3836768ed226b3945908d1a688371c"
             ],
-            "markers": "python_version >= '3.5'",
-            "version": "==2.0.10"
+            "markers": "python_full_version >= '3.5.0'",
+            "version": "==2.0.11"
         },
         "croniter": {
             "hashes": [
@@ -287,7 +287,7 @@
                 "sha256:84d9dd047ffa80596e0f246e2eab0b391788b0503584e8945f2368256d2735ff",
                 "sha256:9d643ff0a55b762d5cdb124b8eaa99c66322e2157b69160bc32796e824360e6d"
             ],
-            "markers": "python_version >= '3.5'",
+            "markers": "python_full_version >= '3.5.0'",
             "version": "==3.3"
         },
         "llconfig": {
