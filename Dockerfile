@@ -1,4 +1,4 @@
-FROM python:3.9-slim
+FROM python:3.10.4-slim
 
 RUN pip3 install --no-cache-dir pipenv
 COPY Pipfile Pipfile.lock /app/
