@@ -26,11 +26,11 @@
         },
         "aiogram": {
             "hashes": [
-                "sha256:33ee61db550f6fc455e2d74d8911af31108e3c398eda03c2f91b0a7cb32a97d9",
-                "sha256:390ac56a629cd0d151d544e3b87d539ee49f734ccc7a1a7e375c33f436e556e0"
+                "sha256:02e4120122af423575d48519cb469d15189f5da00a3237e715d492fe6d798bfd",
+                "sha256:d2c5068cc89fc4012038268e111ca9249f66decce817522ec4d215dd829bc507"
             ],
             "index": "pypi",
-            "version": "==2.21"
+            "version": "==2.22.2"
         },
         "aiohttp": {
             "hashes": [
@@ -208,7 +208,7 @@
                 "sha256:0f7569a4a6ff151958b64304071d370daa3243d15941a7beedf0c9fe5105603e",
                 "sha256:a851e51367fb93e9e1361732c1d60dab63eff98712e503ea7d92e6eccb109b4f"
             ],
-            "markers": "python_version >= '3.6' and python_version < '4.0'",
+            "markers": "python_version >= '3.6' and python_version < '4'",
             "version": "==2.2.1"
         },
         "emoji": {
@@ -565,7 +565,7 @@
                 "sha256:7c5599b102feddaa661c826c56ab4fee28bfd17f5abca1ebbe3e7f19d7c97983",
                 "sha256:8fefa2a1a1365bf5520aac41836fbee479da67864514bdb821f31ce07ce65349"
             ],
-            "markers": "python_version >= '3.7' and python_version < '4.0'",
+            "markers": "python_version >= '3.7' and python_version < '4'",
             "version": "==2.28.1"
         },
         "sentry-sdk": {
