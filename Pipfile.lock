@@ -386,11 +386,11 @@
         },
         "motor": {
             "hashes": [
-                "sha256:3e36d29406c151b61342e6a8fa5e90c00c4723b76e30f11276a4373ea2064b7d",
-                "sha256:b076de44970f518177f0eeeda8b183f52eafa557775bfe3294e93bda18867a71"
+                "sha256:01d93d7c512810dcd85f4d634a7244ba42ff6be7340c869791fe793561e734da",
+                "sha256:a4bdadf8a08ebb186ba16e557ba432aa867f689a42b80f2e9f8b24bbb1604742"
             ],
             "index": "pypi",
-            "version": "==3.0.0"
+            "version": "==3.1.1"
         },
         "multidict": {
             "hashes": [
