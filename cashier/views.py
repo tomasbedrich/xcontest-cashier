@@ -1,6 +1,6 @@
 from typing import Optional
 
-from aiogram.utils.emoji import emojize
+from emoji import emojize
 
 from cashier.const import CMD_PAIR, CMD_NOTIFY
 from cashier.models.membership import Membership
@@ -16,7 +16,7 @@ def new_transaction_msg(transaction: Transaction, membership_type: Optional[Memb
 
     If the transaction contains a message, it is used as a pilot username for a pairing command.
     """
-    icon = emojize(":white_check_mark:" if membership_type else ":question:")
+    icon = emojize(":check_mark_button:" if membership_type else ":red_question_mark:")
     lines = [
         "<strong>New transaction:</strong>",
         f"{icon} {transaction.amount} Kč from {transaction.from_} - {transaction.message or '(no message)'}",
@@ -56,7 +56,7 @@ Za klub, {signature}"""
 
 
 def start_msg():
-    return emojize("Keep calm, I am working 24/7. :sunglasses:")
+    return "Keep calm, I am working 24/7."
 
 
 def help_msg():
