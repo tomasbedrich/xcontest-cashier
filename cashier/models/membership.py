@@ -37,9 +37,9 @@ class Membership:
         @classmethod
         def from_amount(cls, amount: int):
             """Return membership type based on amounts agreed by the club board."""
-            if amount in (80, 100):
+            if amount in (100, 150):
                 return cls.daily
-            if amount == 300:
+            if amount == 500:
                 return cls.yearly
             raise ValueError(f"Amount of {amount} doesn't correspond to any membership type")
 
