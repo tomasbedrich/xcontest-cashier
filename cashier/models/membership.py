@@ -84,7 +84,7 @@ class MembershipStorage(metaclass=NoPublicConstructor):
 
         "Most suitable" means (in this order):
 
-        1. Yearly membership bound to the year when the flight happened.
+        1. Yearly membership bound to the season when the flight happened.
         2. Daily membership bound to the day when the flight happened.
         3. Unbound yearly membership.
         4. Unbound daily membership.
@@ -93,13 +93,13 @@ class MembershipStorage(metaclass=NoPublicConstructor):
         # some aliases to make Black happy
         search = self.db_collection.find_one
         base_filter = {"pilot.username": flight.pilot.username}
-        flight_year = flight.datetime.year
+        flight_season = flight.season
         flight_date = flight.datetime.date().isoformat()
 
         # This can be probably solved by some fancy Mongo multi-column-index sorting feature...
         # But I just need to get the shit done.
         candidates = [
-            search({**base_filter, "type": Membership.Type.yearly.value, "used_for": flight_year}),  # 1.
+            search({**base_filter, "type": Membership.Type.yearly.value, "used_for": flight_season}),  # 1.
             search({**base_filter, "type": Membership.Type.daily.value, "used_for": flight_date}),  # 2.
             search({**base_filter, "type": Membership.Type.yearly.value, "used_for": None}),  # 3.
             search({**base_filter, "type": Membership.Type.daily.value, "used_for": None}),  # 4.
@@ -115,7 +115,7 @@ class MembershipStorage(metaclass=NoPublicConstructor):
         Set membership to be used for given flight.
         """
         if membership.type == Membership.Type.yearly:
-            used_for = flight.datetime.year
+            used_for = flight.season
         elif membership.type == Membership.Type.daily:
             used_for = flight.datetime.date().isoformat()
         await self.db_collection.update_one(

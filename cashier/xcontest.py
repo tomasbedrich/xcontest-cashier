@@ -115,6 +115,14 @@ class Flight(object):
     def from_dict(cls, obj):
         return cls(id=obj["id"], link=obj["link"], pilot=Pilot.from_dict(obj["pilot"]), datetime=obj["datetime"])
 
+    @property
+    def season(self) -> int:
+        """Return yearly season as defined on XContest."""
+        if self.datetime.month < 10:
+            return self.datetime.year
+        else:
+            return self.datetime.year + 1
+
 
 async def login(session: ClientSession, username: str, password: str):
     """
