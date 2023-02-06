@@ -26,11 +26,11 @@
         },
         "aiogram": {
             "hashes": [
-                "sha256:1d70539f92277be9710a02c107f81fc082d54781f29b71257ca3d2493a0442d0",
-                "sha256:3eca413b5479970532f49e18ec0608ac29e7664b078f190544abcc2d4c3237ac"
+                "sha256:59ad78fc0ebbef1fd471c15778a4594b60117e0d7373bc2ce7bcd192074d527d",
+                "sha256:7bb770cd0459f1dbaea00578bf13fb2e6a1812f22adf94a988c11a7c0d5f33e1"
             ],
             "index": "pypi",
-            "version": "==2.24"
+            "version": "==2.25.1"
         },
         "aiohttp": {
             "hashes": [
@@ -181,11 +181,11 @@
         },
         "beautifulsoup4": {
             "hashes": [
-                "sha256:58d5c3d29f5a36ffeb94f02f0d786cd53014cf9b3b3951d42e0080d8a9498d30",
-                "sha256:ad9aa55b65ef2808eb405f46cf74df7fcb7044d5cbc26487f96eb2ef2e436693"
+                "sha256:0e79446b10b3ecb499c1556f7e228a53e64a2bfcebd455f370d8927cb5b59e39",
+                "sha256:bc4bdda6717de5a2987436fb8d72f45dc90dd856bdfd512a1314ce90349a0106"
             ],
             "markers": "python_version >= '3.6'",
-            "version": "==4.11.1"
+            "version": "==4.11.2"
         },
         "bs4": {
             "hashes": [
