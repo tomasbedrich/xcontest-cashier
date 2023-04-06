@@ -181,11 +181,11 @@
         },
         "beautifulsoup4": {
             "hashes": [
-                "sha256:2130a5ad7f513200fae61a17abb5e338ca980fa28c439c0571014bc0217e9591",
-                "sha256:c5fceeaec29d09c84970e47c65f2f0efe57872f7cff494c9691a26ec0ff13234"
+                "sha256:c7bdbfb20a0dbe09518b96a809d93351b2e2bcb8046c0809466fa6632a10c257",
+                "sha256:e44795bb4f156d94abb5fbc56efff871c1045bfef72e9efe77558db9f9616ac3"
             ],
             "markers": "python_version >= '3.6'",
-            "version": "==4.12.0"
+            "version": "==4.12.1"
         },
         "bs4": {
             "hashes": [
@@ -703,11 +703,11 @@
         },
         "sentry-sdk": {
             "hashes": [
-                "sha256:6732b59a55051646587acce21f6a00b53d05df9282d54886ad88b59b4e9b82ad",
-                "sha256:8dcffbbb963963567384d6eb49c76b8fb05753540715cbee5e5ca5bc8327ded4"
+                "sha256:7ae78bd921981a5010ab540d6bdf3b793659a4db8cccf7f16180702d48a80d84",
+                "sha256:885a11c69df23e53eb281d003b9ff15a5bdfa43d8a2a53589be52104a1b4582f"
             ],
             "index": "pypi",
-            "version": "==1.19.0"
+            "version": "==1.19.1"
         },
         "six": {
             "hashes": [
