@@ -66,6 +66,8 @@ class TransactionStorage(metaclass=NoPublicConstructor):
         retry = 3
         while True:
             try:
+                # TODO it happened once that `self.bank.last` call stuck for a MONTH
+                # I don't know how to set timeout for it, so ignoring it for now...
                 if last_transaction:
                     from_id = last_transaction["id"]
                     log.debug(f"Downloading last transactions {from_id=}")

@@ -61,14 +61,15 @@ def guarded_message_handler(*custom_filters, **kwargs):
 
 async def _send_message(*args, **kwargs):
     """Send a Telegram message handling retries if needed."""
+    await asyncio.sleep(random.uniform(0, 5))
     while True:
         try:
             return await bot.send_message(*args, **kwargs)
         except RetryAfter as e:
             # this happens quite often since we may post many flights during a spike
-            await asyncio.sleep(e.timeout + random.uniform(0, 10))
+            await asyncio.sleep(e.timeout + random.uniform(3, 15))
         except RestartingTelegram:
-            await asyncio.sleep(10 + random.uniform(0, 10))
+            await asyncio.sleep(30 + random.uniform(3, 15))
 
 
 # Step 1
@@ -90,7 +91,7 @@ async def process_transaction(trans_storage: TransactionStorage, trans: Transact
     except ValueError:
         membership_type = None
     msg = new_transaction_msg(trans, membership_type)
-    await _send_message(CHAT_ID, msg, parse_mode="HTML")
+    asyncio.create_task(_send_message(CHAT_ID, msg, parse_mode="HTML"))
 
 
 async def _parse_pair_args(session: ClientSession, args: str) -> Membership:
