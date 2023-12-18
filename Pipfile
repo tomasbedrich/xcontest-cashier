@@ -8,14 +8,14 @@ verify_ssl = true
 [packages]
 fiobank = "*"
 llconfig = "*"
-aiohttp = "*"
-bs4 = "*"
+aiohttp = "~=3.9"  # https://stackoverflow.com/a/77388956
+beautifulsoup4 = "*"
 lxml = "*"
-aiogram = "*"
+aiogram = "<3.0.0"
 sentry-sdk = "*"
 aiocron = "*"
 motor = "*"
 emoji = "*"
 
 [requires]
-python_version = "3.8"
+python_version = "3"
