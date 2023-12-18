@@ -50,7 +50,9 @@ Píšu Ti jménem PG klubu Plzeň. Na základě automatizované kontroly pilotů
 
 Můžeme Tě zpětně poprosit o zaplacení poplatku? Jestli si vybereš denní / roční, to je na Tobě. Všechny detaily k platbě najdeš zde: https://pgplzen.cz/
 
-Děkujeme! Přispěješ tím na nájem startovacích a přistávacích ploch, jejich údržbu a provoz meteo sond.
+Pokud si myslíš, že se někde stala chyba a poplatek již zaplacený máš - prosím, pošli detaily na vybor@pgplzen.cz. Tvoji platbu dohledáme a individuálně dořešíme.
+
+Placením startovného přispíváš na nájem startovacích a přistávacích ploch, jejich údržbu a provoz meteo sond. Děkujeme!
 
 Za klub, {signature}"""
 
