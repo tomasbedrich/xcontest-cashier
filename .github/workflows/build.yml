@@ -3,9 +3,13 @@ name: ci
 on:
   push:
     branches: master
+  pull_request:
+    types:
+      - closed
 
 jobs:
-  master:
+  build:
+    if: ${{ github.ref_name == 'master' || github.event.pull_request.merged == true }}
     runs-on: ubuntu-latest
     steps:
 
