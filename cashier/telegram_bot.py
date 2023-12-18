@@ -187,7 +187,7 @@ async def notify(session, flight_storage, message: types.Message):
     msg = unpaid_fee_msg(flight, message.from_user.full_name)
     # TODO actual DM sending + confirmation before send?
     await message.answer(
-        f'<strong>I would have sent following message to <a href="{flight.pilot.private_message_url}">{flight.pilot.username}</a>:</strong>\n\n{msg}',
+        f'<strong>I would have sent following message to <a href="{flight.pilot.private_message_url}">{flight.pilot.username}</a>:</strong>\n\n<pre>{msg}</pre>',
         disable_web_page_preview=True,
         parse_mode="HTML",
     )
