@@ -1,4 +1,4 @@
-name: ci
+name: Build and push
 
 on:
   push:
@@ -6,6 +6,7 @@ on:
   pull_request:
     types:
       - closed
+  workflow_dispatch:
 
 jobs:
   build:
