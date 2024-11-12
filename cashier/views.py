@@ -63,7 +63,7 @@ def start_msg():
 
 def help_msg():
     lines = [
-        f"<code>/{CMD_PAIR} &lt;TRANSACTION_ID&gt; &lt;MEMBERSHIP_TYPE&gt; &lt;PILOT_USERNAME&gt;</code> - pair a transaction to a pilot (create a membership of given type)",
+        f"<code>/{CMD_PAIR} &lt;TRANSACTION_ID&gt; &lt;MEMBERSHIP_TYPE&gt; &lt;PILOT_USERNAME&gt;</code> - pair a transaction to a pilot (create a membership of given type). Available &lt;MEMBERSHIP_TYPE&gt;s: DAILY, YEARLY",
         f"<code>/{CMD_NOTIFY} &lt;FLIGHT_ID&gt;</code> - notify a pilot about unpaid fees (based on given flight)",
     ]
-    return "\n".join(lines)
+    return "\n\n".join(lines)
