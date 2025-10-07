@@ -8,7 +8,7 @@ verify_ssl = true
 [packages]
 fiobank = "*"
 llconfig = "*"
-aiohttp = "~=3.12"  # https://stackoverflow.com/a/77388956
+aiohttp = "~=3.13"  # https://stackoverflow.com/a/77388956
 beautifulsoup4 = "*"
 lxml = "*"
 aiogram = "<3.0.0"
