@@ -1,15 +1,17 @@
-FROM python:3.11.15-slim
+FROM python:3.14-slim
 
-RUN pip3 install --no-cache-dir pipenv
-COPY Pipfile Pipfile.lock /app/
-RUN cd /app && pipenv install --deploy --system
-RUN pip3 uninstall -y pipenv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+WORKDIR /app
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev
 
 COPY cashier /app
 
 HEALTHCHECK CMD test "$(find /tmp/liveness -mmin -1)" || exit 1
 
-ENV PYTHONPATH "/app"
+ENV PYTHONPATH="/app"
+ENV PATH="/app/.venv/bin:$PATH"
 
 STOPSIGNAL SIGINT
 
